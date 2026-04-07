@@ -5,7 +5,6 @@
 //  Created by Emanuele Curati on 06/04/2026.
 //
 
-
 import SwiftUI
 
 struct OnboardingView: View {
@@ -81,10 +80,8 @@ struct OnboardingView: View {
 
                 pageIndicator
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 24)
-            .padding(.bottom, 24)
             .background(Color(AppColors.background))
+            .appScreen()
             .navigationBarHidden(true)
         }
     }
@@ -115,13 +112,11 @@ struct OnboardingView: View {
         VStack(spacing: 0) {
             VStack(spacing: 12) {
                 Text("Set up your baby's profile")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+                    .appText(.largeTitle)
                     .multilineTextAlignment(.center)
 
                 Text("Enter your baby's details and choose which features you want to enable right away.")
-                    .font(.body)
-                    .foregroundStyle(AppColors.textSecondary)
+                    .appText(.bodySecondary)
                     .multilineTextAlignment(.center)
             }
             .padding(.top, 24)
@@ -134,13 +129,7 @@ struct OnboardingView: View {
                         VStack(spacing: 16) {
                             formFieldLabel("Name")
                             TextField("Enter your baby's name", text: $name)
-                                .textFieldStyle(.plain)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 14)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .fill(AppColors.background)
-                                )
+                                .appInputField()
 
                             VStack(alignment: .leading, spacing: 8) {
                                 formFieldLabel("Birth date")
@@ -153,12 +142,7 @@ struct OnboardingView: View {
                                 .labelsHidden()
                                 .datePickerStyle(.compact)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 14)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                        .fill(AppColors.background)
-                                )
+                                .appInputField()
                             }
 
                             VStack(alignment: .leading, spacing: 8) {
@@ -180,23 +164,15 @@ struct OnboardingView: View {
                     }
 
                     Text("You can change these settings later.")
-                        .font(.footnote)
-                        .foregroundStyle(AppColors.textSecondary)
+                        .appText(.captionSecondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Button(action: continueTapped) {
-                        Text("Continue")
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(AppColors.primary)
-                    .shadow(color: AppColors.primary.opacity(0.20), radius: 14, x: 0, y: 8)
-                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Button("Continue", action: continueTapped)
+                        .buttonStyle(PrimaryButtonStyle())
+                        .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
                 .padding(.horizontal, 24)
-                .padding(.bottom, 12)
+                .padding(.bottom, 24)
             }
             .scrollIndicators(.hidden)
         }
@@ -215,8 +191,7 @@ struct OnboardingView: View {
     private func formSection<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(title)
-                .font(.headline)
-                .fontWeight(.semibold)
+                .appText(.headline)
 
             content()
         }
@@ -304,43 +279,27 @@ struct OnboardingView: View {
 
                 VStack(spacing: 12) {
                     Text(title)
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .foregroundStyle(AppColors.primary)
+                        .appText(.largeTitle)
                         .multilineTextAlignment(.center)
 
                     Text(subtitle)
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(AppColors.textPrimary)
+                        .appText(.headline)
                         .multilineTextAlignment(.center)
 
                     Text(description)
-                        .font(.body)
-                        .foregroundStyle(AppColors.textSecondary)
+                        .appText(.bodySecondary)
                         .multilineTextAlignment(.center)
                         .padding(.top, 4)
                 }
 
                 Spacer(minLength: 0)
 
-                Button(action: buttonAction) {
-                    Text(buttonTitle)
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(AppColors.primary)
+                Button(buttonTitle, action: buttonAction)
+                    .buttonStyle(PrimaryButtonStyle())
 
-                Button(action: skipToForm) {
-                    Text("Skip")
-                        .fontWeight(.medium)
-                        .foregroundStyle(AppColors.primary)
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 8)
-                .padding(.bottom, 48)
+                Button("Skip", action: skipToForm)
+                    .buttonStyle(SecondaryButtonStyle())
+                    .padding(.top, 8)
             }
             .padding(24)
         }
