@@ -6,12 +6,15 @@
 //
 
 import SwiftUI
+import SwiftData
 
 @main
 struct BimblyticsApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .tint(AppColors.primary)
         }
+        .modelContainer(for: [Baby.self])
     }
 }
