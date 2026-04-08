@@ -333,6 +333,10 @@ struct OnboardingView: View {
     }
 }
 
-#Preview {
+#Preview("Onboarding") {
     OnboardingView { _ in }
+}
+#Preview ("Onboarding Dark") {
+    OnboardingView { _ in }
+        .preferredColorScheme(.dark)
 }
