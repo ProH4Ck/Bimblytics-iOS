@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct OnboardingView: View {
 
@@ -14,6 +15,8 @@ struct OnboardingView: View {
         case diapers
         case babyInfo
     }
+    
+    @Environment(\.modelContext) private var modelContext
 
     // Local form state
     @State private var currentStep: Step = .welcome
@@ -329,7 +332,16 @@ struct OnboardingView: View {
             gender: gender,
             diaperEnabled: diaperEnabled
         )
-        onComplete(newBaby)
+
+        modelContext.insert(newBaby)
+
+        do {
+            try modelContext.save()
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            onComplete(newBaby)
+        } catch {
+            assertionFailure("Failed to save Baby to SwiftData: \(error)")
+        }
     }
 }
 
