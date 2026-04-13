@@ -11,6 +11,7 @@ import SwiftData
 struct BabyListView: View {
     @Query(sort: \Baby.name, order: .forward) private var babies: [Baby]
     @Environment(\.dismiss) private var dismiss
+    @State private var showingAddBaby = false
 
     var body: some View {
         NavigationStack {
@@ -40,7 +41,19 @@ struct BabyListView: View {
             .background(AppColors.background)
             .navigationTitle("Babies")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(isPresented: $showingAddBaby) {
+                BabyDetailView(baby: nil)
+            }
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showingAddBaby = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .foregroundStyle(AppColors.primary)
+                    }
+                    .accessibilityLabel("Add baby")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         dismiss()
