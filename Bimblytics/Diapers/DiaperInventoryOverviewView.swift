@@ -74,12 +74,6 @@ struct DiaperInventoryOverviewView: View {
                         }
 
                         Button {
-                            isShowingCatalogManagementSheet = true
-                        } label: {
-                            Label("Manage catalog", systemImage: "list.bullet.rectangle")
-                        }
-
-                        Button {
                             isShowingNewLocationSheet = true
                         } label: {
                             Label("New location", systemImage: "house.fill")
