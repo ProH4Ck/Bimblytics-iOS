@@ -15,6 +15,14 @@ struct BimblyticsApp: App {
             ContentView()
                 .tint(AppColors.primary)
         }
-        .modelContainer(for: [Baby.self])
+        .modelContainer(for: [
+            Baby.self,
+            DiaperBrand.self,
+            DiaperModel.self,
+            DiaperSize.self,
+            InventoryLocation.self,
+            DiaperInventoryItem.self,
+            DiaperStockMovement.self
+        ])
     }
 }
