@@ -1,0 +1,77 @@
+//
+//  DiaperBrand.swift
+//  Bimblytics
+//
+//  Created by Emanuele Curati on 16/04/2026.
+//
+
+import Foundation
+import SwiftData
+
+@Model
+final class DiaperChangeEvent {
+    @Attribute(.unique)
+    var id: UUID
+
+    var date: Date
+
+    // Relations
+    var diaperSize: DiaperSize?
+    var location: InventoryLocation?
+
+    // Levels (0–4)
+    var peeLevelRaw: Int
+    var poopLevelRaw: Int
+
+    var notes: String?
+
+    var createdAt: Date
+
+    init(
+        date: Date,
+        diaperSize: DiaperSize?,
+        location: InventoryLocation?,
+        peeLevel: DiaperLevel,
+        poopLevel: DiaperLevel,
+        notes: String?
+    ) {
+        self.id = UUID()
+        self.date = date
+        self.diaperSize = diaperSize
+        self.location = location
+        self.peeLevelRaw = peeLevel.rawValue
+        self.poopLevelRaw = poopLevel.rawValue
+        self.notes = notes
+        self.createdAt = .now
+    }
+}
+
+enum DiaperLevel: Int, CaseIterable, Identifiable {
+    case none = 0
+    case low = 1
+    case medium = 2
+    case high = 3
+    case veryHigh = 4
+
+    var id: Int { rawValue }
+
+    var label: String {
+        switch self {
+        case .none: return "0"
+        case .low: return "1"
+        case .medium: return "2"
+        case .high: return "3"
+        case .veryHigh: return "4"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .none: return "None"
+        case .low: return "Light"
+        case .medium: return "Medium"
+        case .high: return "Heavy"
+        case .veryHigh: return "Very heavy"
+        }
+    }
+}
