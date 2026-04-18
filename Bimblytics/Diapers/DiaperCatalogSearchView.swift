@@ -20,11 +20,16 @@ struct DiaperCatalogSearchView: View {
 
     @State private var searchText: String = ""
     @State private var isShowingNewDiaperEntrySheet: Bool = false
+    private let onSelect: ((DiaperSize) -> Void)?
+
+    init(onSelect: ((DiaperSize) -> Void)? = nil) {
+        self.onSelect = onSelect
+    }
 
     var body: some View {
         NavigationStack {
             content
-                .navigationTitle("Add diaper stock")
+                .navigationTitle(onSelect == nil ? "Add diaper stock" : "Select diaper")
                 .searchable(
                     text: $searchText,
                     placement: .navigationBarDrawer(displayMode: .always),
@@ -65,16 +70,30 @@ struct DiaperCatalogSearchView: View {
         } else {
             List {
                 ForEach(filteredSizes) { diaperSize in
-                    NavigationLink {
-                        AddDiaperStockView(diaperSize: diaperSize)
-                    } label: {
-                        DiaperCatalogSearchResultRow(
-                            diaperSize: diaperSize,
-                            totalQuantity: totalQuantity(for: diaperSize),
-                            stockByLocation: stockByLocation(for: diaperSize)
-                        )
+                    if let onSelect {
+                        Button {
+                            onSelect(diaperSize)
+                        } label: {
+                            DiaperCatalogSearchResultRow(
+                                diaperSize: diaperSize,
+                                totalQuantity: totalQuantity(for: diaperSize),
+                                stockByLocation: stockByLocation(for: diaperSize)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(AppColors.surface)
+                    } else {
+                        NavigationLink {
+                            AddDiaperStockView(diaperSize: diaperSize)
+                        } label: {
+                            DiaperCatalogSearchResultRow(
+                                diaperSize: diaperSize,
+                                totalQuantity: totalQuantity(for: diaperSize),
+                                stockByLocation: stockByLocation(for: diaperSize)
+                            )
+                        }
+                        .listRowBackground(AppColors.surface)
                     }
-                    .listRowBackground(AppColors.surface)
                 }
             }
             .scrollContentBackground(.hidden)
@@ -185,4 +204,10 @@ struct DiaperCatalogSearchView: View {
     DiaperCatalogSearchView()
         .modelContainer(DiaperInventoryPreviewData.makeContainer())
         .preferredColorScheme(.dark)
+}
+
+#Preview("Catalog Search Picker") {
+    DiaperCatalogSearchView { _ in
+    }
+        .modelContainer(DiaperInventoryPreviewData.makeContainer())
 }
