@@ -13,6 +13,7 @@ final class DiaperChangeEvent {
     @Attribute(.unique)
     var id: UUID
 
+    var babyId: UUID
     var date: Date
 
     // Relations
@@ -28,6 +29,7 @@ final class DiaperChangeEvent {
     var createdAt: Date
 
     init(
+        babyId: UUID,
         date: Date,
         diaperSize: DiaperSize?,
         location: InventoryLocation?,
@@ -36,6 +38,7 @@ final class DiaperChangeEvent {
         notes: String?
     ) {
         self.id = UUID()
+        self.babyId = babyId
         self.date = date
         self.diaperSize = diaperSize
         self.location = location

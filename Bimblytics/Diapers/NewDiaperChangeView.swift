@@ -12,6 +12,8 @@ struct NewDiaperChangeView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
+    let babyId: UUID
+
     @Query(sort: [SortDescriptor(\InventoryLocation.name)])
     private var locations: [InventoryLocation]
 
@@ -29,109 +31,113 @@ struct NewDiaperChangeView: View {
     @State private var notes: String = ""
 
     var body: some View {
-        Form {
-            // Date
-            Section("When") {
-                DatePicker(
-                    "Date & time",
-                    selection: $selectedDate,
-                    displayedComponents: [.date, .hourAndMinute]
-                )
-            }
-            
-            // Diaper
-            Section("Diaper") {
-                Button {
-                    isShowingDiaperSearch = true
-                } label: {
-                    HStack {
-                        Text("Model / Size")
-                            .foregroundStyle(.primary)
-                        
-                        Spacer()
-                        
-                        Text(selectedSizeDisplay)
-                            .foregroundStyle(selectedSize == nil ? .secondary : .primary)
-                        
-                        Image(systemName: "chevron.right")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
+        NavigationStack {
+            Form {
+                // Date
+                Section("When") {
+                    DatePicker(
+                        "Date & time",
+                        selection: $selectedDate,
+                        displayedComponents: [.date, .hourAndMinute]
+                    )
                 }
-                .buttonStyle(.plain)
-            }
-            
-            // Location
-            Section("Location") {
-                Picker("Inventory location", selection: $selectedLocation) {
-                    Text("Select").tag(Optional<InventoryLocation>.none)
-                    
-                    ForEach(locations) { location in
-                        Text(location.name)
-                            .tag(Optional(location))
-                    }
-                }
-
-                if let remainingStockInSelectedLocation {
-                    LabeledContent("Remaining stock") {
-                        Text("\(remainingStockInSelectedLocation)")
-                            .foregroundStyle(remainingStockInSelectedLocation > 0 ? AppColors.primary : AppColors.accent)
-                    }
-
-                    if remainingStockInSelectedLocation == 0 {
-                        Text("No stock is available for the selected diaper in this location.")
-                            .font(.footnote)
-                            .foregroundStyle(AppColors.accent)
-                    }
-                }
-            }
-
-            // Levels
-            Section("Levels") {
-                levelPicker(
-                    title: "Pee",
-                    selection: $peeLevel,
-                    systemImage: "drop.fill"
-                )
                 
-                levelPicker(
-                    title: "Poop",
-                    selection: $poopLevel,
-                    systemImage: "circle.fill"
-                )
-            }
-
-            // Notes
-            Section("Notes") {
-                TextField("Optional notes", text: $notes, axis: .vertical)
-                    .lineLimit(3...6)
-            }
-        }
-        .navigationTitle("Diaper change")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") {
-                    dismiss()
+                // Diaper
+                Section("Diaper") {
+                    Button {
+                        isShowingDiaperSearch = true
+                    } label: {
+                        HStack {
+                            Text("Model / Size")
+                                .foregroundStyle(.primary)
+                            
+                            Spacer()
+                            
+                            Text(selectedSizeDisplay)
+                                .foregroundStyle(selectedSize == nil ? .secondary : .primary)
+                            
+                            Image(systemName: "chevron.right")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+                
+                // Location
+                Section("Location") {
+                    Picker("Inventory location", selection: $selectedLocation) {
+                        Text("Select").tag(Optional<InventoryLocation>.none)
+                        
+                        ForEach(locations) { location in
+                            Text(location.name)
+                                .tag(Optional(location))
+                        }
+                    }
+                    
+                    if let remainingStockInSelectedLocation {
+                        LabeledContent("Remaining stock") {
+                            Text("\(remainingStockInSelectedLocation)")
+                                .foregroundStyle(remainingStockInSelectedLocation > 0 ? AppColors.primary : AppColors.accent)
+                        }
+                        
+                        if remainingStockInSelectedLocation == 0 {
+                            Text("No stock is available for the selected diaper in this location.")
+                                .font(.footnote)
+                                .foregroundStyle(AppColors.accent)
+                        }
+                    }
+                }
+                
+                // Levels
+                Section("Levels") {
+                    levelPicker(
+                        title: "Pee",
+                        selection: $peeLevel,
+                        systemImage: "drop.fill"
+                    )
+                    
+                    levelPicker(
+                        title: "Poop",
+                        selection: $poopLevel,
+                        systemImage: "circle.fill"
+                    )
+                }
+                
+                // Notes
+                Section("Notes") {
+                    TextField("Optional notes", text: $notes, axis: .vertical)
+                        .lineLimit(3...6)
                 }
             }
-
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Save") {
-                    save()
+            .navigationTitle("Diaper change")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
                 }
-                .disabled(!canSave)
+                
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        save()
+                    }
+                    .disabled(!canSave)
+                }
+            }
+            .sheet(isPresented: $isShowingDiaperSearch) {
+                NavigationStack {
+                    DiaperCatalogSearchView { size in
+                        selectedSize = size
+                        isShowingDiaperSearch = false
+                    }
+                }
+                .presentationDetents([.large])
             }
         }
-        .sheet(isPresented: $isShowingDiaperSearch) {
-            NavigationStack {
-                DiaperCatalogSearchView { size in
-                    selectedSize = size
-                    isShowingDiaperSearch = false
-                }
-            }
-            .presentationDetents([.large])
-        }
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
     }
 
     private var canSave: Bool {
@@ -165,11 +171,14 @@ struct NewDiaperChangeView: View {
     }
 
     private func save() {
-        guard hasStockInSelectedLocation else {
+        guard hasStockInSelectedLocation,
+              let selectedSize,
+              let selectedLocation else {
             return
         }
 
         let event = DiaperChangeEvent(
+            babyId: babyId,
             date: selectedDate,
             diaperSize: selectedSize,
             location: selectedLocation,
@@ -178,8 +187,23 @@ struct NewDiaperChangeView: View {
             notes: notes.isEmpty ? nil : notes
         )
 
-        modelContext.insert(event)
-        dismiss()
+        do {
+            let inventoryService = DiaperInventoryService(modelContext: modelContext)
+
+            try inventoryService.consumeStock(
+                for: selectedSize,
+                in: selectedLocation,
+                quantity: 1,
+                note: "Diaper change"
+            )
+
+            modelContext.insert(event)
+            try modelContext.save()
+            dismiss()
+        } catch {
+            // Keep the current lightweight UX for now: simply do not dismiss on failure.
+            // A dedicated error state can be added later if needed.
+        }
     }
 
     private var selectedSizeDisplay: String {
@@ -232,14 +256,14 @@ struct NewDiaperChangeView: View {
 
 #Preview("New Diaper Change") {
     NavigationStack {
-        NewDiaperChangeView()
+        NewDiaperChangeView(babyId: UUID())
     }
     .modelContainer(DiaperInventoryPreviewData.makeContainer())
 }
 
 #Preview("New Diaper Change Dark") {
     NavigationStack {
-        NewDiaperChangeView()
+        NewDiaperChangeView(babyId: UUID())
     }
     .preferredColorScheme(.dark)
     .modelContainer(DiaperInventoryPreviewData.makeContainer())
