@@ -13,6 +13,8 @@ struct ContentView: View {
     @State private var selectedBabyID: UUID?
     @State private var showingDiaperForm = false
     @State private var showingBabyList = false
+    @State private var pendingEventDeletion: RecentEvent?
+    @State private var isShowingDeleteEventAlert = false
 
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
 
@@ -74,6 +76,16 @@ struct ContentView: View {
             }
             .sheet(isPresented: $showingBabyList) {
                 BabyListView()
+            }
+            .alert("Delete event?", isPresented: $isShowingDeleteEventAlert, presenting: pendingEventDeletion) { event in
+                Button("Delete", role: .destructive) {
+                    delete(event: event)
+                }
+                Button("Cancel", role: .cancel) {
+                    pendingEventDeletion = nil
+                }
+            } message: { _ in
+                Text("This will delete the diaper change event and its related stock movement.")
             }
             .onAppear {
                 ensureSelectedBaby()
@@ -149,7 +161,14 @@ struct ContentView: View {
                 } else {
                     VStack(spacing: 0) {
                         ForEach(Array(events.enumerated()), id: \.element.id) { index, event in
-                            RecentEventRow(event: event)
+                            RecentEventRow(
+                                event: event,
+                                onDeleteTapped: {
+                                    pendingEventDeletion = event
+                                    isShowingDeleteEventAlert = true
+                                }
+                            )
+
                             if index != events.count - 1 {
                                 Divider()
                                     .overlay(AppColors.primary.opacity(0.08))
@@ -248,6 +267,7 @@ struct ContentView: View {
                 }
 
                 return RecentEvent(
+                    changeEvent: change,
                     icon: "drop.fill",
                     title: title,
                     date: change.date,
@@ -258,10 +278,34 @@ struct ContentView: View {
             return []
         }
     }
+
+    private func delete(event: RecentEvent) {
+        let changeEvent = event.changeEvent
+
+        do {
+            if let stockMovementId = changeEvent.stockMovementId,
+               let linkedMovement = modelContext.model(for: stockMovementId) as? DiaperStockMovement {
+                if let inventoryItem = linkedMovement.inventoryItem {
+                    inventoryItem.quantityOnHand -= linkedMovement.quantityDelta
+                    inventoryItem.updatedAt = .now
+                }
+
+                modelContext.delete(linkedMovement)
+            }
+
+            modelContext.delete(changeEvent)
+            try modelContext.save()
+        } catch {
+            // Keep current UX simple for now.
+        }
+
+        pendingEventDeletion = nil
+    }
 }
 
 struct RecentEvent: Identifiable, Hashable {
     let id = UUID()
+    let changeEvent: DiaperChangeEvent
     let icon: String
     let title: String
     let date: Date
@@ -270,6 +314,7 @@ struct RecentEvent: Identifiable, Hashable {
 
 struct RecentEventRow: View {
     let event: RecentEvent
+    let onDeleteTapped: () -> Void
 
     private var relativeText: String {
         let formatter = RelativeDateTimeFormatter()
@@ -300,6 +345,29 @@ struct RecentEventRow: View {
             }
 
             Spacer(minLength: 0)
+
+            Menu {
+                Button(role: .destructive) {
+                    onDeleteTapped()
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(AppColors.textSecondary)
+                    .padding(8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(AppColors.surface)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .stroke(AppColors.primary.opacity(0.10), lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Event actions")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
