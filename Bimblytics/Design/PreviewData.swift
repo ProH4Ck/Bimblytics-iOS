@@ -291,6 +291,43 @@ enum PreviewData {
             context.insert(movement)
         }
 
+        let diaperChanges: [DiaperChangeEvent] = [
+            DiaperChangeEvent(
+                babyId: baby1.id,
+                date: Calendar.current.date(byAdding: .minute, value: -45, to: Date()) ?? Date(),
+                diaperSize: babyDrySize4,
+                location: home,
+                stockMovementId: movements[2].persistentModelID.storeIdentifier,
+                peeLevel: .medium,
+                poopLevel: .none,
+                notes: "Quick diaper change before nap"
+            ),
+            DiaperChangeEvent(
+                babyId: baby1.id,
+                date: Calendar.current.date(byAdding: .hour, value: -6, to: Date()) ?? Date(),
+                diaperSize: progressiSize3,
+                location: bag,
+                stockMovementId: movements[3].persistentModelID.storeIdentifier,
+                peeLevel: .high,
+                poopLevel: .low,
+                notes: "Changed while out"
+            ),
+            DiaperChangeEvent(
+                babyId: baby2.id,
+                date: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date(),
+                diaperSize: swimmersSize2,
+                location: secondHome,
+                stockMovementId: movements[4].persistentModelID.storeIdentifier,
+                peeLevel: .low,
+                poopLevel: .medium,
+                notes: "Pool diaper after swim"
+            )
+        ]
+
+        for diaperChange in diaperChanges {
+            context.insert(diaperChange)
+        }
+
         do {
             try context.save()
         } catch {

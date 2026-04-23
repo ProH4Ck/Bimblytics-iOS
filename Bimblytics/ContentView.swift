@@ -15,27 +15,27 @@ struct ContentView: View {
     @State private var showingBabyList = false
     @State private var pendingEventDeletion: RecentEvent?
     @State private var isShowingDeleteEventAlert = false
-
+    
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
-
+    
     @Environment(\.modelContext) private var modelContext
-
+    
     private var shouldShowOnboarding: Bool {
         guard !ProcessInfo.processInfo.isRunningForPreviews else {
             return false
         }
-
+        
         return !hasCompletedOnboarding || babies.isEmpty
     }
-
+    
     private var selectedBaby: Baby? {
         guard let selectedBabyID else {
             return babies.first
         }
-
+        
         return babies.first(where: { $0.id == selectedBabyID }) ?? babies.first
     }
-
+    
     var body: some View {
         NavigationStack {
             TabView(selection: $selectedBabyID) {
@@ -69,7 +69,7 @@ struct ContentView: View {
                     }
                     .accessibilityLabel("Diaper inventory")
                 }
-               
+                
             }
             .sheet(isPresented: $showingDiaperForm) {
                 NewDiaperChangeView(babyId: selectedBabyID!)
@@ -102,25 +102,25 @@ struct ContentView: View {
             }
         }
     }
-
+    
     private func ensureSelectedBaby() {
         guard let firstBaby = babies.first else {
             selectedBabyID = nil
             return
         }
-
+        
         guard let selectedBabyID else {
             self.selectedBabyID = firstBaby.id
             return
         }
-
+        
         let containsSelectedBaby = babies.contains(where: { $0.id == selectedBabyID })
         if !containsSelectedBaby {
             self.selectedBabyID = firstBaby.id
         }
     }
-
-
+    
+    
     @ViewBuilder
     private func page(for baby: Baby) -> some View {
         ScrollView {
@@ -131,10 +131,10 @@ struct ContentView: View {
                         return baby.diaperEnabled
                     }
                 }
-
+                
                 if !items.isEmpty {
                     sectionHeader(title: "Quick actions")
-
+                    
                     LazyVGrid(
                         columns: [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 12, alignment: .top)],
                         spacing: 12
@@ -152,10 +152,10 @@ struct ContentView: View {
                         }
                     }
                 }
-
+                
                 let events = recentEvents(for: baby)
                 sectionHeader(title: "Latest events")
-
+                
                 if events.isEmpty {
                     emptyEventsCard
                 } else {
@@ -168,7 +168,7 @@ struct ContentView: View {
                                     isShowingDeleteEventAlert = true
                                 }
                             )
-
+                            
                             if index != events.count - 1 {
                                 Divider()
                                     .overlay(AppColors.primary.opacity(0.08))
@@ -191,7 +191,7 @@ struct ContentView: View {
         }
         .background(AppColors.background)
     }
-
+    
     @ViewBuilder
     private func sectionHeader(title: String) -> some View {
         Text(title)
@@ -199,7 +199,7 @@ struct ContentView: View {
             .foregroundStyle(AppColors.textPrimary)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
-
+    
     private var emptyEventsCard: some View {
         Text("No recent events")
             .font(.subheadline)
@@ -215,7 +215,7 @@ struct ContentView: View {
                     .stroke(AppColors.primary.opacity(0.10), lineWidth: 1)
             )
     }
-
+    
     private func lastEventText(date: Date?, prefix: String) -> String {
         guard let date else { return "\(prefix): mai" }
         let formatter = RelativeDateTimeFormatter()
@@ -223,7 +223,7 @@ struct ContentView: View {
         let relative = formatter.localizedString(for: date, relativeTo: Date())
         return "\(prefix): \(relative)"
     }
-
+    
     private func operations(for baby: Baby) -> [OperationItem] {
         return [
             OperationItem(
@@ -238,34 +238,34 @@ struct ContentView: View {
     
     private func recentEvents(for baby: Baby) -> [RecentEvent] {
         let babyId = baby.id
-
+        
         let descriptor = FetchDescriptor<DiaperChangeEvent>(
             predicate: #Predicate<DiaperChangeEvent> { event in
                 event.babyId == babyId
             },
             sortBy: [SortDescriptor(\DiaperChangeEvent.date, order: .reverse)]
         )
-
+        
         do {
             let diaperChanges = try modelContext.fetch(descriptor)
-
+            
             return Array(diaperChanges.prefix(5)).map { change in
                 let diaperTitle = [
                     change.diaperSize?.model?.brand?.name,
                     change.diaperSize?.model?.name,
                     change.diaperSize?.displayName
                 ]
-                .compactMap { $0 }
-                .filter { !$0.isEmpty }
-                .joined(separator: " • ")
-
+                    .compactMap { $0 }
+                    .filter { !$0.isEmpty }
+                    .joined(separator: " • ")
+                
                 let title: String
                 if diaperTitle.isEmpty {
                     title = "Diaper change"
                 } else {
                     title = "Diaper change · \(diaperTitle)"
                 }
-
+                
                 return RecentEvent(
                     changeEvent: change,
                     icon: "drop.fill",
@@ -278,28 +278,41 @@ struct ContentView: View {
             return []
         }
     }
-
+    
     private func delete(event: RecentEvent) {
         let changeEvent = event.changeEvent
-
+        
         do {
             if let stockMovementId = changeEvent.stockMovementId,
-               let linkedMovement = modelContext.model(for: stockMovementId) as? DiaperStockMovement {
+               let linkedMovement = linkedStockMovement(withId: stockMovementId) {
                 if let inventoryItem = linkedMovement.inventoryItem {
                     inventoryItem.quantityOnHand -= linkedMovement.quantityDelta
                     inventoryItem.updatedAt = .now
                 }
-
+                
                 modelContext.delete(linkedMovement)
             }
-
+            
             modelContext.delete(changeEvent)
             try modelContext.save()
         } catch {
             // Keep current UX simple for now.
         }
-
+        
         pendingEventDeletion = nil
+    }
+    
+    
+    private func linkedStockMovement(withId id: String) -> DiaperStockMovement? {
+        let descriptor = FetchDescriptor<DiaperStockMovement>()
+        
+        guard let movements = try? modelContext.fetch(descriptor) else {
+            return nil
+        }
+        
+        return movements.first(where: { movement in
+            String(describing: movement.persistentModelID) == id
+        })
     }
 }
 

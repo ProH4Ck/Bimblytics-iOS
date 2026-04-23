@@ -20,8 +20,8 @@ final class DiaperChangeEvent {
     var diaperSize: DiaperSize?
     var location: InventoryLocation?
 
-    // Linked stock movement
-    var stockMovementId: PersistentIdentifier?
+    // Linked stock movement (stored as String for SwiftData compatibility)
+    var stockMovementId: String?
 
     // Levels (0–4)
     var peeLevelRaw: Int
@@ -36,7 +36,7 @@ final class DiaperChangeEvent {
         date: Date,
         diaperSize: DiaperSize?,
         location: InventoryLocation?,
-        stockMovementId: PersistentIdentifier? = nil,
+        stockMovementId: String? = nil,
         peeLevel: DiaperLevel,
         poopLevel: DiaperLevel,
         notes: String?
