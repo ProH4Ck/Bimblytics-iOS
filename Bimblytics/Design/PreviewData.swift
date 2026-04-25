@@ -19,7 +19,11 @@ enum PreviewData {
             InventoryLocation.self,
             DiaperInventoryItem.self,
             DiaperStockMovement.self,
-            DiaperChangeEvent.self
+            DiaperChangeEvent.self,
+            FoodCategory.self,
+            FoodUnit.self,
+            FoodItem.self,
+            FeedingEvent.self
         ])
 
         let configuration = ModelConfiguration(
@@ -59,6 +63,112 @@ enum PreviewData {
 
         context.insert(baby1)
         context.insert(baby2)
+
+        let milkCategory = FoodCategory(
+            name: "Milk",
+            sortOrder: 0,
+            isSystem: true,
+            isArchived: false
+        )
+
+        let babyFoodCategory = FoodCategory(
+            name: "Baby food",
+            sortOrder: 1,
+            isSystem: true,
+            isArchived: false
+        )
+
+        let fruitCategory = FoodCategory(
+            name: "Fruit",
+            sortOrder: 2,
+            isSystem: true,
+            isArchived: false
+        )
+
+        let snackCategory = FoodCategory(
+            name: "Snack",
+            sortOrder: 3,
+            isSystem: false,
+            isArchived: false
+        )
+
+        context.insert(milkCategory)
+        context.insert(babyFoodCategory)
+        context.insert(fruitCategory)
+        context.insert(snackCategory)
+
+        let millilitersUnit = FoodUnit(
+            name: "Milliliters",
+            symbol: "ml",
+            sortOrder: 0,
+            isSystem: true,
+            isArchived: false
+        )
+
+        let gramsUnit = FoodUnit(
+            name: "Grams",
+            symbol: "g",
+            sortOrder: 1,
+            isSystem: true,
+            isArchived: false
+        )
+
+        let portionUnit = FoodUnit(
+            name: "Portion",
+            symbol: "portion",
+            sortOrder: 2,
+            isSystem: false,
+            isArchived: false
+        )
+
+        let bottleUnit = FoodUnit(
+            name: "Bottle",
+            symbol: "bottle",
+            sortOrder: 3,
+            isSystem: false,
+            isArchived: false
+        )
+
+        context.insert(millilitersUnit)
+        context.insert(gramsUnit)
+        context.insert(portionUnit)
+        context.insert(bottleUnit)
+
+        let formulaMilk = FoodItem(
+            name: "Formula milk",
+            category: milkCategory,
+            defaultUnit: millilitersUnit
+        )
+
+        let breastMilk = FoodItem(
+            name: "Breast milk",
+            category: milkCategory,
+            defaultUnit: millilitersUnit
+        )
+
+        let applePuree = FoodItem(
+            name: "Apple puree",
+            category: fruitCategory,
+            defaultUnit: gramsUnit
+        )
+
+        let vegetablePuree = FoodItem(
+            name: "Vegetable puree",
+            category: babyFoodCategory,
+            defaultUnit: gramsUnit
+        )
+
+        let riceCream = FoodItem(
+            name: "Rice cream",
+            category: snackCategory,
+            defaultUnit: portionUnit
+        )
+
+        context.insert(formulaMilk)
+        context.insert(breastMilk)
+        context.insert(applePuree)
+        context.insert(vegetablePuree)
+        context.insert(riceCream)
 
         let home = InventoryLocation(
             name: "Home",
@@ -326,6 +436,68 @@ enum PreviewData {
 
         for diaperChange in diaperChanges {
             context.insert(diaperChange)
+        }
+
+        let feedingEvents: [FeedingEvent] = [
+            FeedingEvent(
+                babyId: baby1.id,
+                eventDate: Calendar.current.date(byAdding: .minute, value: -20, to: Date()) ?? Date(),
+                foodName: formulaMilk.name,
+                foodCategoryName: formulaMilk.category?.name,
+                quantity: 120,
+                unitName: millilitersUnit.name,
+                unitSymbol: millilitersUnit.symbol,
+                notes: "Finished the whole bottle",
+                foodItem: formulaMilk
+            ),
+            FeedingEvent(
+                babyId: baby1.id,
+                eventDate: Calendar.current.date(byAdding: .hour, value: -4, to: Date()) ?? Date(),
+                foodName: applePuree.name,
+                foodCategoryName: applePuree.category?.name,
+                quantity: 80,
+                unitName: gramsUnit.name,
+                unitSymbol: gramsUnit.symbol,
+                notes: "Ate calmly before nap",
+                foodItem: applePuree
+            ),
+            FeedingEvent(
+                babyId: baby1.id,
+                eventDate: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date(),
+                foodName: breastMilk.name,
+                foodCategoryName: breastMilk.category?.name,
+                quantity: 90,
+                unitName: millilitersUnit.name,
+                unitSymbol: millilitersUnit.symbol,
+                notes: "Expressed milk",
+                foodItem: breastMilk
+            ),
+            FeedingEvent(
+                babyId: baby2.id,
+                eventDate: Calendar.current.date(byAdding: .hour, value: -2, to: Date()) ?? Date(),
+                foodName: vegetablePuree.name,
+                foodCategoryName: vegetablePuree.category?.name,
+                quantity: 150,
+                unitName: gramsUnit.name,
+                unitSymbol: gramsUnit.symbol,
+                notes: "Lunch at home",
+                foodItem: vegetablePuree
+            ),
+            FeedingEvent(
+                babyId: baby2.id,
+                eventDate: Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date(),
+                foodName: riceCream.name,
+                foodCategoryName: riceCream.category?.name,
+                quantity: 1,
+                unitName: portionUnit.name,
+                unitSymbol: portionUnit.symbol,
+                notes: "Evening snack",
+                foodItem: riceCream
+            )
+        ]
+
+        for feedingEvent in feedingEvents {
+            context.insert(feedingEvent)
         }
 
         do {
