@@ -22,7 +22,11 @@ struct BimblyticsApp: App {
             DiaperSize.self,
             InventoryLocation.self,
             DiaperInventoryItem.self,
-            DiaperStockMovement.self
+            DiaperStockMovement.self,
+            FeedingEvent.self,
+            FoodCategory.self,
+            FoodItem.self,
+            FoodUnit.self
         ])
     }
 }
