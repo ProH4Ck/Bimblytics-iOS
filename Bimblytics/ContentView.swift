@@ -12,30 +12,31 @@ struct ContentView: View {
     @Query(sort: [SortDescriptor(\Baby.name)]) private var babies: [Baby]
     @State private var selectedBabyID: UUID?
     @State private var showingDiaperForm = false
+    @State private var showingFeedingForm = false
     @State private var showingBabyList = false
     @State private var pendingEventDeletion: RecentEvent?
     @State private var isShowingDeleteEventAlert = false
-    
+
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
-    
+
     @Environment(\.modelContext) private var modelContext
-    
+
     private var shouldShowOnboarding: Bool {
         guard !ProcessInfo.processInfo.isRunningForPreviews else {
             return false
         }
-        
+
         return !hasCompletedOnboarding || babies.isEmpty
     }
-    
+
     private var selectedBaby: Baby? {
         guard let selectedBabyID else {
             return babies.first
         }
-        
+
         return babies.first(where: { $0.id == selectedBabyID }) ?? babies.first
     }
-    
+
     var body: some View {
         NavigationStack {
             TabView(selection: $selectedBabyID) {
@@ -47,32 +48,53 @@ struct ContentView: View {
             .background(AppColors.background)
             .tabViewStyle(.page(indexDisplayMode: .automatic))
             .navigationTitle(selectedBaby?.name ?? "Bimblytics")
-            .navigationSubtitle(Text(selectedBaby?.ageText() ?? ""))
             .navigationBarTitleDisplayMode(.large)
+            .toolbarTitleDisplayMode(.inlineLarge)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showingBabyList = true
                     } label: {
-                        Image(systemName: "list.bullet")
+                        Image(systemName: "person.2.circle")
                             .foregroundColor(AppColors.primary)
                     }
                     .accessibilityLabel("Baby list")
                 }
+
                 ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        DiaperInventoryOverviewView()
+                    Menu {
+                        NavigationLink {
+                            DiaperInventoryOverviewView()
+                        } label: {
+                            Label {
+                                Text("Diaper inventory")
+                            } icon: {
+                                Image("DiaperIcon")
+                                    .renderingMode(.template)
+                            }
+                        }
+
+                        NavigationLink {
+                            FoodCatalogView()
+                        } label: {
+                            Label("Food catalog", systemImage: "fork.knife")
+                        }
                     } label: {
-                        Image("DiaperIcon")
-                            .renderingMode(.template)
+                        Image(systemName: "gearshape")
                             .foregroundColor(AppColors.primary)
                     }
-                    .accessibilityLabel("Diaper inventory")
+                    .accessibilityLabel("Management options")
                 }
-                
             }
             .sheet(isPresented: $showingDiaperForm) {
-                NewDiaperChangeView(babyId: selectedBabyID!)
+                if let selectedBabyID {
+                    NewDiaperChangeView(babyId: selectedBabyID)
+                }
+            }
+            .sheet(isPresented: $showingFeedingForm) {
+                if let selectedBabyID {
+                    NewFeedingEventView(babyId: selectedBabyID)
+                }
             }
             .sheet(isPresented: $showingBabyList) {
                 BabyListView()
@@ -84,8 +106,13 @@ struct ContentView: View {
                 Button("Cancel", role: .cancel) {
                     pendingEventDeletion = nil
                 }
-            } message: { _ in
-                Text("This will delete the diaper change event and its related stock movement.")
+            } message: { event in
+                switch event.kind {
+                case .diaperChange:
+                    Text("This will delete the diaper change event and its related stock movement.")
+                case .feeding:
+                    Text("This will delete the feeding event.")
+                }
             }
             .onAppear {
                 ensureSelectedBaby()
@@ -102,25 +129,24 @@ struct ContentView: View {
             }
         }
     }
-    
+
     private func ensureSelectedBaby() {
         guard let firstBaby = babies.first else {
             selectedBabyID = nil
             return
         }
-        
+
         guard let selectedBabyID else {
             self.selectedBabyID = firstBaby.id
             return
         }
-        
+
         let containsSelectedBaby = babies.contains(where: { $0.id == selectedBabyID })
         if !containsSelectedBaby {
             self.selectedBabyID = firstBaby.id
         }
     }
-    
-    
+
     @ViewBuilder
     private func page(for baby: Baby) -> some View {
         ScrollView {
@@ -129,33 +155,32 @@ struct ContentView: View {
                     switch item.kind {
                     case .diaper:
                         return baby.diaperEnabled
+                    case .feeding:
+                        return true
                     }
                 }
-                
+
                 if !items.isEmpty {
                     sectionHeader(title: "Quick actions")
-                    
+
                     LazyVGrid(
                         columns: [GridItem(.adaptive(minimum: 150, maximum: 220), spacing: 12, alignment: .top)],
                         spacing: 12
                     ) {
                         ForEach(items) { item in
-                            switch item.kind {
-                            case .diaper:
-                                Button {
-                                    showingDiaperForm = true
-                                } label: {
-                                    OperationTile(item: item)
-                                }
-                                .buttonStyle(.plain)
+                            Button {
+                                handle(operation: item)
+                            } label: {
+                                OperationTile(item: item)
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
-                
+
                 let events = recentEvents(for: baby)
                 sectionHeader(title: "Latest events")
-                
+
                 if events.isEmpty {
                     emptyEventsCard
                 } else {
@@ -168,7 +193,7 @@ struct ContentView: View {
                                     isShowingDeleteEventAlert = true
                                 }
                             )
-                            
+
                             if index != events.count - 1 {
                                 Divider()
                                     .overlay(AppColors.primary.opacity(0.08))
@@ -191,7 +216,16 @@ struct ContentView: View {
         }
         .background(AppColors.background)
     }
-    
+
+    private func handle(operation: OperationItem) {
+        switch operation.kind {
+        case .diaper:
+            showingDiaperForm = true
+        case .feeding:
+            showingFeedingForm = true
+        }
+    }
+
     @ViewBuilder
     private func sectionHeader(title: String) -> some View {
         Text(title)
@@ -199,7 +233,7 @@ struct ContentView: View {
             .foregroundStyle(AppColors.textPrimary)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
-    
+
     private var emptyEventsCard: some View {
         Text("No recent events")
             .font(.subheadline)
@@ -215,15 +249,7 @@ struct ContentView: View {
                     .stroke(AppColors.primary.opacity(0.10), lineWidth: 1)
             )
     }
-    
-    private func lastEventText(date: Date?, prefix: String) -> String {
-        guard let date else { return "\(prefix): mai" }
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .full
-        let relative = formatter.localizedString(for: date, relativeTo: Date())
-        return "\(prefix): \(relative)"
-    }
-    
+
     private func operations(for baby: Baby) -> [OperationItem] {
         return [
             OperationItem(
@@ -232,24 +258,31 @@ struct ContentView: View {
                 subtitle: "Track the latest diaper change",
                 colors: [AppColors.surface],
                 kind: .diaper
+            ),
+            OperationItem(
+                icon: Image("BabyBottleIcon"),
+                title: "Feeding",
+                subtitle: "Track baby feeding",
+                colors: [AppColors.surface],
+                kind: .feeding
             )
         ]
     }
-    
+
     private func recentEvents(for baby: Baby) -> [RecentEvent] {
         let babyId = baby.id
-        
-        let descriptor = FetchDescriptor<DiaperChangeEvent>(
+
+        var events: [RecentEvent] = []
+
+        let diaperDescriptor = FetchDescriptor<DiaperChangeEvent>(
             predicate: #Predicate<DiaperChangeEvent> { event in
                 event.babyId == babyId
             },
             sortBy: [SortDescriptor(\DiaperChangeEvent.date, order: .reverse)]
         )
-        
-        do {
-            let diaperChanges = try modelContext.fetch(descriptor)
-            
-            return Array(diaperChanges.prefix(5)).map { change in
+
+        if let diaperChanges = try? modelContext.fetch(diaperDescriptor) {
+            events.append(contentsOf: diaperChanges.map { change in
                 let diaperTitle = [
                     change.diaperSize?.model?.brand?.name,
                     change.diaperSize?.model?.name,
@@ -258,58 +291,88 @@ struct ContentView: View {
                     .compactMap { $0 }
                     .filter { !$0.isEmpty }
                     .joined(separator: " • ")
-                
+
                 let title: String
                 if diaperTitle.isEmpty {
                     title = "Diaper change"
                 } else {
                     title = "Diaper change · \(diaperTitle)"
                 }
-                
+
                 return RecentEvent(
-                    changeEvent: change,
+                    kind: .diaperChange(change),
                     icon: "drop.fill",
                     title: title,
+                    subtitle: nil,
                     date: change.date,
                     color: AppColors.primary
                 )
-            }
-        } catch {
-            return []
+            })
         }
-    }
-    
-    private func delete(event: RecentEvent) {
-        let changeEvent = event.changeEvent
-        
-        do {
-            if let stockMovementId = changeEvent.stockMovementId,
-               let linkedMovement = linkedStockMovement(withId: stockMovementId) {
-                if let inventoryItem = linkedMovement.inventoryItem {
-                    inventoryItem.quantityOnHand -= linkedMovement.quantityDelta
-                    inventoryItem.updatedAt = .now
+
+        let feedingDescriptor = FetchDescriptor<FeedingEvent>(
+            predicate: #Predicate<FeedingEvent> { event in
+                event.babyId == babyId
+            },
+            sortBy: [SortDescriptor(\FeedingEvent.eventDate, order: .reverse)]
+        )
+
+        if let feedingEvents = try? modelContext.fetch(feedingDescriptor) {
+            events.append(contentsOf: feedingEvents.map { feeding in
+                RecentEvent(
+                    kind: .feeding(feeding),
+                    icon: "fork.knife",
+                    title: "Feeding · \(feeding.foodName)",
+                    subtitle: feeding.quantityDisplayText,
+                    date: feeding.eventDate,
+                    color: AppColors.accent
+                )
+            })
+        }
+
+        return Array(
+            events
+                .sorted { lhs, rhs in
+                    lhs.date > rhs.date
                 }
-                
-                modelContext.delete(linkedMovement)
+                .prefix(5)
+        )
+    }
+
+    private func delete(event: RecentEvent) {
+        do {
+            switch event.kind {
+            case .diaperChange(let changeEvent):
+                if let stockMovementId = changeEvent.stockMovementId,
+                   let linkedMovement = linkedStockMovement(withId: stockMovementId) {
+                    if let inventoryItem = linkedMovement.inventoryItem {
+                        inventoryItem.quantityOnHand -= linkedMovement.quantityDelta
+                        inventoryItem.updatedAt = .now
+                    }
+
+                    modelContext.delete(linkedMovement)
+                }
+
+                modelContext.delete(changeEvent)
+            case .feeding(let feedingEvent):
+                modelContext.delete(feedingEvent)
             }
-            
-            modelContext.delete(changeEvent)
+
             try modelContext.save()
         } catch {
             // Keep current UX simple for now.
         }
-        
+
         pendingEventDeletion = nil
     }
-    
-    
+
     private func linkedStockMovement(withId id: String) -> DiaperStockMovement? {
         let descriptor = FetchDescriptor<DiaperStockMovement>()
-        
+
         guard let movements = try? modelContext.fetch(descriptor) else {
             return nil
         }
-        
+
         return movements.first(where: { movement in
             String(describing: movement.persistentModelID) == id
         })
@@ -318,11 +381,17 @@ struct ContentView: View {
 
 struct RecentEvent: Identifiable, Hashable {
     let id = UUID()
-    let changeEvent: DiaperChangeEvent
+    let kind: RecentEventKind
     let icon: String
     let title: String
+    let subtitle: String?
     let date: Date
     let color: Color
+}
+
+enum RecentEventKind: Hashable {
+    case diaperChange(DiaperChangeEvent)
+    case feeding(FeedingEvent)
 }
 
 struct RecentEventRow: View {
@@ -351,6 +420,12 @@ struct RecentEventRow: View {
                     .font(.body.weight(.semibold))
                     .foregroundStyle(AppColors.textPrimary)
                     .lineLimit(2)
+
+                if let subtitle = event.subtitle {
+                    Text(subtitle)
+                        .font(.footnote)
+                        .foregroundStyle(AppColors.textSecondary)
+                }
 
                 Text(relativeText)
                     .font(.footnote)
@@ -384,6 +459,160 @@ struct RecentEventRow: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+    }
+}
+
+private struct NewFeedingEventView: View {
+    let babyId: UUID
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
+    @Query(
+        filter: #Predicate<FoodUnit> { !$0.isArchived },
+        sort: [
+            SortDescriptor(\FoodUnit.sortOrder),
+            SortDescriptor(\FoodUnit.name)
+        ]
+    )
+    private var units: [FoodUnit]
+
+    @State private var eventDate: Date = .now
+    @State private var selectedFood: FoodItem?
+    @State private var selectedUnit: FoodUnit?
+    @State private var quantityText: String = ""
+    @State private var notes: String = ""
+    @State private var isShowingFoodPicker = false
+
+    private var quantity: Double? {
+        Double(quantityText.replacingOccurrences(of: ",", with: "."))
+    }
+
+    private var canSave: Bool {
+        selectedFood != nil && selectedUnit != nil && (quantity ?? 0) > 0
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("When") {
+                    DatePicker(
+                        "Date and time",
+                        selection: $eventDate,
+                        displayedComponents: [.date, .hourAndMinute]
+                    )
+                }
+
+                Section("Food") {
+                    Button {
+                        isShowingFoodPicker = true
+                    } label: {
+                        HStack {
+                            Text("Food")
+                            Spacer()
+                            Text(selectedFood?.name ?? "Select")
+                                .foregroundStyle(selectedFood == nil ? AppColors.textSecondary : AppColors.textPrimary)
+                        }
+                    }
+
+                    Picker("Unit", selection: $selectedUnit) {
+                        Text("Select")
+                            .tag(Optional<FoodUnit>.none)
+
+                        ForEach(units) { unit in
+                            Text(unitLabel(for: unit))
+                                .tag(Optional(unit))
+                        }
+                    }
+                }
+
+                Section("Quantity") {
+                    TextField("Quantity", text: $quantityText)
+                        .keyboardType(.decimalPad)
+                }
+
+                Section("Notes") {
+                    TextField("Optional notes", text: $notes, axis: .vertical)
+                        .lineLimit(3...6)
+                }
+            }
+            .navigationTitle("New feeding")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        save()
+                    } label: {
+                        Image(systemName: "checkmark")
+                    }
+                    .disabled(!canSave)
+                    .accessibilityLabel("Save feeding")
+                }
+            }
+            .sheet(isPresented: $isShowingFoodPicker) {
+                NavigationStack {
+                    FoodCatalogView { food in
+                        selectedFood = food
+                        selectedUnit = food.defaultUnit ?? selectedUnit
+                        isShowingFoodPicker = false
+                    }
+                    .navigationTitle("Select food")
+                }
+            }
+            .onChange(of: selectedFood) { _, newValue in
+                if selectedUnit == nil {
+                    selectedUnit = newValue?.defaultUnit
+                }
+            }
+        }
+    }
+
+    private func save() {
+        guard let selectedFood,
+              let selectedUnit,
+              let quantity,
+              quantity > 0 else {
+            return
+        }
+
+        let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let event = FeedingEvent(
+            babyId: babyId,
+            eventDate: eventDate,
+            foodName: selectedFood.name,
+            foodCategoryName: selectedFood.category?.name,
+            quantity: quantity,
+            unitName: selectedUnit.name,
+            unitSymbol: selectedUnit.symbol,
+            notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
+            foodItem: selectedFood
+        )
+
+        modelContext.insert(event)
+
+        do {
+            try modelContext.save()
+            dismiss()
+        } catch {
+            assertionFailure("Failed to save feeding event: \(error.localizedDescription)")
+        }
+    }
+
+    private func unitLabel(for unit: FoodUnit) -> String {
+        let trimmedSymbol = unit.symbol.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmedSymbol.isEmpty {
+            return unit.name
+        }
+
+        return "\(unit.name) (\(trimmedSymbol))"
     }
 }
 
