@@ -209,6 +209,31 @@ struct ContentView: View {
                             .stroke(AppColors.primary.opacity(0.10), lineWidth: 1)
                     )
                 }
+
+                NavigationLink {
+                    BabyEventsView(baby: baby)
+                } label: {
+                    HStack {
+                        Text("View all events")
+                            .font(.body.weight(.semibold))
+
+                        Spacer()
+
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                    }
+                    .foregroundStyle(AppColors.primary)
+                    .padding(16)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(AppColors.surface)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(AppColors.primary.opacity(0.10), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 16)
             .padding(.top, 16)
