@@ -429,6 +429,13 @@ struct RecentEventRow: View {
         return formatter.localizedString(for: event.date, relativeTo: Date())
     }
 
+    private var eventDateTimeText: String {
+        event.date.formatted(
+            date: .abbreviated,
+            time: .shortened
+        )
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
@@ -452,7 +459,7 @@ struct RecentEventRow: View {
                         .foregroundStyle(AppColors.textSecondary)
                 }
 
-                Text(relativeText)
+                Text("\(relativeText) • \(eventDateTimeText)")
                     .font(.footnote)
                     .foregroundStyle(AppColors.textSecondary)
             }
