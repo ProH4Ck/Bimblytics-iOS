@@ -21,45 +21,65 @@ struct BabyEventsView: View {
     private let pageSize = 20
     
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                ForEach(events) { event in
-                    RecentEventRow(
-                        event: event,
-                        onDeleteTapped: {}
-                    )
-                    .listRowBackground(AppColors.surface)
-                    .onAppear {
-                        loadMoreIfNeeded(currentEvent: event)
+        List {
+            if events.isEmpty && !isLoading {
+                ContentUnavailableView(
+                    "No events",
+                    systemImage: "calendar.badge.exclamationmark",
+                    description: Text("There are no events for this baby yet.")
+                )
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(events.enumerated()), id: \.element.id) { index, event in
+                        RecentEventRow(
+                            event: event,
+                            onDeleteTapped: {}
+                        )
+                        .onAppear {
+                            loadMoreIfNeeded(currentEvent: event)
+                        }
+                        if index != events.count - 1 {
+                            Divider()
+                                .overlay(AppColors.primary.opacity(0.08))
+                        }
                     }
                 }
-                
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(AppColors.surface)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(AppColors.primary.opacity(0.10), lineWidth: 1)
+                )
+                .padding(.horizontal, 16)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+
                 if isLoading {
                     HStack {
                         Spacer()
                         ProgressView()
                         Spacer()
                     }
-                    .listRowBackground(AppColors.background)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
                 }
             }
-            .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(AppColors.surface)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(AppColors.primary.opacity(0.10), lineWidth: 1)
-            )
-            .scrollContentBackground(.hidden)
-            .task {
-                loadEvents(reset: true)
-            }
         }
-        .padding(16)
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .background(AppColors.background)
         .navigationTitle("All events")
         .navigationBarTitleDisplayMode(.large)
+        .task {
+            loadEvents(reset: true)
+        }
     }
     
     private func loadMoreIfNeeded(currentEvent: RecentEvent) {
@@ -125,7 +145,7 @@ struct BabyEventsView: View {
                 
                 return RecentEvent(
                     kind: .diaperChange(change),
-                    icon: "drop.fill",
+                    icon: "DiaperIcon",
                     title: title,
                     subtitle: nil,
                     date: change.date,
@@ -146,7 +166,7 @@ struct BabyEventsView: View {
             result.append(contentsOf: feedingEvents.map { feeding in
                 RecentEvent(
                     kind: .feeding(feeding),
-                    icon: "fork.knife",
+                    icon: "BabyBottleIcon",
                     title: "Feeding · \(feeding.foodName)",
                     subtitle: feeding.quantityDisplayText,
                     date: feeding.eventDate,
@@ -164,9 +184,18 @@ struct BabyEventsView: View {
 #Preview("Baby Events") {
     struct BabyEventsPreviewContainer: View {
         @Query(sort: [SortDescriptor(\Baby.name)]) private var babies: [Baby]
+
         var body: some View {
             NavigationStack {
-                BabyEventsView(baby: babies.first!)
+                if let baby = babies.first {
+                    BabyEventsView(baby: baby)
+                } else {
+                    ContentUnavailableView(
+                        "No baby",
+                        systemImage: "person.crop.circle.badge.exclamationmark",
+                        description: Text("Preview data does not contain any baby.")
+                    )
+                }
             }
         }
     }
@@ -178,9 +207,18 @@ struct BabyEventsView: View {
 #Preview("Baby Events Dark") {
     struct BabyEventsPreviewContainer: View {
         @Query(sort: [SortDescriptor(\Baby.name)]) private var babies: [Baby]
+
         var body: some View {
             NavigationStack {
-                BabyEventsView(baby: babies.first!)
+                if let baby = babies.first {
+                    BabyEventsView(baby: baby)
+                } else {
+                    ContentUnavailableView(
+                        "No baby",
+                        systemImage: "person.crop.circle.badge.exclamationmark",
+                        description: Text("Preview data does not contain any baby.")
+                    )
+                }
             }
         }
     }
