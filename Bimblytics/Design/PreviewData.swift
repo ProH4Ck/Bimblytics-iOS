@@ -23,7 +23,9 @@ enum PreviewData {
             FoodCategory.self,
             FoodUnit.self,
             FoodItem.self,
-            FeedingEvent.self
+            FeedingEvent.self,
+            SyncedFamily.self,
+            SyncedFamilyBabyLink.self
         ])
 
         let configuration = ModelConfiguration(
@@ -471,6 +473,50 @@ enum PreviewData {
                 unitSymbol: millilitersUnit.symbol,
                 notes: "Expressed milk",
                 foodItem: breastMilk
+            ),
+            FeedingEvent(
+                babyId: baby1.id,
+                eventDate: Calendar.current.date(byAdding: .hour, value: -28, to: Date()) ?? Date(),
+                foodName: formulaMilk.name,
+                foodCategoryName: formulaMilk.category?.name,
+                quantity: 120,
+                unitName: millilitersUnit.name,
+                unitSymbol: millilitersUnit.symbol,
+                notes: "Finished the whole bottle",
+                foodItem: formulaMilk
+            ),
+            FeedingEvent(
+                babyId: baby1.id,
+                eventDate: Calendar.current.date(byAdding: .hour, value: -30, to: Date()) ?? Date(),
+                foodName: formulaMilk.name,
+                foodCategoryName: formulaMilk.category?.name,
+                quantity: 80,
+                unitName: gramsUnit.name,
+                unitSymbol: gramsUnit.symbol,
+                notes: "Ate calmly before nap",
+                foodItem: formulaMilk
+            ),
+            FeedingEvent(
+                babyId: baby1.id,
+                eventDate: Calendar.current.date(byAdding: .hour, value: -40, to: Date()) ?? Date(),
+                foodName: formulaMilk.name,
+                foodCategoryName: formulaMilk.category?.name,
+                quantity: 120,
+                unitName: gramsUnit.name,
+                unitSymbol: gramsUnit.symbol,
+                notes: "",
+                foodItem: formulaMilk
+            ),
+            FeedingEvent(
+                babyId: baby1.id,
+                eventDate: Calendar.current.date(byAdding: .hour, value: -60, to: Date()) ?? Date(),
+                foodName: formulaMilk.name,
+                foodCategoryName: formulaMilk.category?.name,
+                quantity: 120,
+                unitName: gramsUnit.name,
+                unitSymbol: gramsUnit.symbol,
+                notes: "",
+                foodItem: formulaMilk
             ),
             FeedingEvent(
                 babyId: baby2.id,

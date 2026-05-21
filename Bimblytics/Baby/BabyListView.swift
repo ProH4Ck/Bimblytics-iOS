@@ -7,11 +7,40 @@
 
 import SwiftUI
 import SwiftData
+import AuthenticationServices
+import CryptoKit
+internal import Combine
 
-struct BabyListView: View {
+@MainActor
+struct BabyListView<AuthService: BimblyticsAuthServicing, FamilyService: BimblyticsFamilyServicing, DeviceService: BimblyticsDeviceServicing, BabyService: BimblyticsBabyServicing, SyncService: BimblyticsSyncServicing>: View {
     @Query(sort: \Baby.name, order: .forward) private var babies: [Baby]
+    @Query(sort: \SyncedFamily.name, order: .forward) private var syncedFamilies: [SyncedFamily]
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var showingAddBaby = false
+    @State private var showingCreateFamilyWizard = false
+    @State private var showingLogoutConfirmation = false
+    @StateObject private var authenticationService: AuthService
+    @StateObject private var familyService: FamilyService
+    @StateObject private var deviceService: DeviceService
+    @StateObject private var babyService: BabyService
+    @StateObject private var syncService: SyncService
+    @State private var authenticationErrorMessage: String?
+    @State private var familyErrorMessage: String?
+
+    init(
+        authenticationService: AuthService,
+        familyService: FamilyService,
+        deviceService: DeviceService,
+        babyService: BabyService,
+        syncService: SyncService
+    ) {
+        _authenticationService = StateObject(wrappedValue: authenticationService)
+        _familyService = StateObject(wrappedValue: familyService)
+        _deviceService = StateObject(wrappedValue: deviceService)
+        _babyService = StateObject(wrappedValue: babyService)
+        _syncService = StateObject(wrappedValue: syncService)
+    }
 
     var body: some View {
         NavigationStack {
@@ -37,12 +66,174 @@ struct BabyListView: View {
                         }
                     }
                 }
+
+                Section {
+                    if authenticationService.isAuthenticated {
+                        if syncedFamilies.isEmpty {
+                            if familyService.isLoading {
+                                HStack(spacing: 12) {
+                                    ProgressView()
+                                        .controlSize(.small)
+
+                                    Text("Loading families...")
+                                        .foregroundStyle(.secondary)
+                                }
+                            } else {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("No families yet")
+                                        .font(.subheadline.weight(.semibold))
+                                    Text("Create your first family to start sharing baby tracking.")
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        } else {
+                            ForEach(syncedFamilies) { family in
+                                HStack(spacing: 12) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(AppColors.accent.opacity(0.15))
+                                        Image(systemName: "house.fill")
+                                            .foregroundStyle(AppColors.accent)
+                                    }
+                                    .frame(width: 36, height: 36)
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(family.name)
+                                            .font(.subheadline.weight(.semibold))
+                                        Text("Family")
+                                            .font(.footnote)
+                                            .foregroundStyle(.secondary)
+                                    }
+
+                                    Spacer()
+
+                                    if familyService.isLoading {
+                                        ProgressView()
+                                            .controlSize(.small)
+                                    }
+                                }
+                            }
+                        }
+
+                        if let familyErrorMessage {
+                            Text(familyErrorMessage)
+                                .font(.footnote)
+                                .foregroundStyle(.red)
+                        }
+
+                        Button {
+                            showingCreateFamilyWizard = true
+                        } label: {
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    Circle()
+                                        .fill(AppColors.primary.opacity(0.15))
+                                    Image(systemName: "person.3.fill")
+                                        .foregroundStyle(AppColors.primary)
+                                }
+                                .frame(width: 36, height: 36)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Create family")
+                                        .foregroundStyle(AppColors.primary)
+                                    Text("Invite caregivers and share baby tracking")
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.footnote.weight(.semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Create family")
+
+                        Button(role: .destructive) {
+                            showingLogoutConfirmation = true
+                        } label: {
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    Circle()
+                                        .fill(Color.red.opacity(0.12))
+                                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                                        .foregroundStyle(.red)
+                                }
+                                .frame(width: 36, height: 36)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Logout")
+                                    Text("Disconnect from Bimblytics.Auth")
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Logout")
+                    } else {
+                        Button {
+                            Task {
+                                do {
+                                    try await authenticationService.signIn()
+                                    authenticationErrorMessage = nil
+                                } catch {
+                                    authenticationErrorMessage = error.localizedDescription
+                                }
+                            }
+                        } label: {
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    Circle()
+                                        .fill(AppColors.primary.opacity(0.15))
+                                    Image(systemName: "person.badge.key.fill")
+                                        .foregroundStyle(AppColors.primary)
+                                }
+                                .frame(width: 36, height: 36)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Sign in or register")
+                                        .foregroundStyle(AppColors.primary)
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.footnote.weight(.semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Sign in or register")
+                    }
+                }
+                
+                if let authenticationErrorMessage {
+                    Section {
+                        Text(authenticationErrorMessage)
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                }
             }
             .background(AppColors.background)
             .navigationTitle("Babies")
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(isPresented: $showingAddBaby) {
                 BabyDetailView(baby: nil)
+            }
+            .navigationDestination(isPresented: $showingCreateFamilyWizard) {
+                FamilySetupWizardView(
+                    babies: babies,
+                    authenticationService: authenticationService,
+                    familyService: familyService,
+                    deviceService: deviceService,
+                    babyService: babyService,
+                    syncService: syncService
+                )
             }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -63,19 +254,576 @@ struct BabyListView: View {
                     }
                 }
             }
+            .onOpenURL { url in
+                authenticationService.handleCallback(url)
+            }
+            .confirmationDialog(
+                "Disconnect account?",
+                isPresented: $showingLogoutConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Logout", role: .destructive) {
+                    authenticationService.logout()
+                }
+
+                Button("Cancel", role: .cancel) {
+                }
+            } message: {
+                Text("You will be disconnected from Bimblytics.Auth on this device.")
+            }
+            .task(id: authenticationService.isAuthenticated) {
+                guard authenticationService.isAuthenticated else {
+                    familyService.clear()
+                    familyErrorMessage = nil
+                    return
+                }
+
+                do {
+                    let accessToken = try await authenticationService.validAccessToken()
+                    try await familyService.loadFamilies(accessToken: accessToken)
+                    let localStore = SyncedFamilyLocalStore(modelContext: modelContext)
+                    try localStore.saveFamilies(familyService.families)
+                    familyErrorMessage = nil
+                } catch {
+                    familyErrorMessage = error.localizedDescription
+                }
+            }
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
 }
 
-#Preview("BabyListView") {
-    return BabyListView()
-        .modelContainer(PreviewData.makeContainer())
+extension BabyListView where AuthService == BimblyticsAuthService, FamilyService == BimblyticsFamilyService, DeviceService == BimblyticsDeviceService, BabyService == BimblyticsBabyService, SyncService == BimblyticsSyncService {
+    init() {
+        self.init(
+            authenticationService: BimblyticsAuthService(),
+            familyService: BimblyticsFamilyService(),
+            deviceService: BimblyticsDeviceService(),
+            babyService: BimblyticsBabyService(),
+            syncService: BimblyticsSyncService()
+        )
+    }
+}
+
+private struct FamilySetupWizardView<AuthService: BimblyticsAuthServicing, FamilyService: BimblyticsFamilyServicing, DeviceService: BimblyticsDeviceServicing, BabyService: BimblyticsBabyServicing, SyncService: BimblyticsSyncServicing>: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \DiaperChangeEvent.createdAt, order: .forward) private var diaperChangeEvents: [DiaperChangeEvent]
+    @Query(sort: \FeedingEvent.createdAt, order: .forward) private var feedingEvents: [FeedingEvent]
+    @Query(sort: \FoodCategory.sortOrder, order: .forward) private var foodCategories: [FoodCategory]
+    @Query(sort: \FoodUnit.sortOrder, order: .forward) private var foodUnits: [FoodUnit]
+    @Query(sort: \FoodItem.name, order: .forward) private var foodItems: [FoodItem]
+    let babies: [Baby]
+    @ObservedObject var authenticationService: AuthService
+    @ObservedObject var familyService: FamilyService
+    @ObservedObject var deviceService: DeviceService
+    @ObservedObject var babyService: BabyService
+    @ObservedObject var syncService: SyncService
+
+    @State private var familyName = ""
+    @State private var selectedBabyIds = Set<UUID>()
+    @State private var isSaving = false
+    @State private var errorMessage: String?
+
+    private var canSave: Bool {
+        !familyName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && authenticationService.isAuthenticated && !isSaving
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                TextField("Family name", text: $familyName)
+                    .textInputAutocapitalization(.words)
+                    .submitLabel(.done)
+            } header: {
+                Text("New family")
+            } footer: {
+                Text("Create a shared space for babies, caregivers and activity tracking.")
+            }
+
+            Section {
+                if babies.isEmpty {
+                    Text("No babies available on this device.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(babies) { baby in
+                        Button {
+                            toggleBabySelection(baby)
+                        } label: {
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    Circle()
+                                        .fill(baby.gender == .male ? AppColors.colorMale : AppColors.colorFemale)
+                                    Image(systemName: "person.fill")
+                                }
+                                .frame(width: 36, height: 36)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(baby.name)
+                                        .foregroundStyle(.primary)
+                                    Text(baby.ageText())
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer()
+
+                                Image(systemName: selectedBabyIds.contains(baby.id) ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(selectedBabyIds.contains(baby.id) ? AppColors.primary : AppColors.secondary)
+                                    .font(.title3)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            } header: {
+                Text("Babies")
+            } footer: {
+                Text("Select the babies that should be associated with the new family.")
+            }
+
+            if let errorMessage {
+                Section {
+                    Text(errorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                }
+            }
+        }
+        .disabled(isSaving)
+        .scrollContentBackground(.hidden)
+        .background(AppColors.background)
+        .overlay {
+            if isSaving {
+                ZStack {
+                    Color.black.opacity(0.08)
+                        .ignoresSafeArea()
+                        .contentShape(Rectangle())
+
+                    VStack(spacing: 14) {
+                        ProgressView()
+                            .controlSize(.large)
+
+                        Text("Creating family...")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+
+                        Text("Syncing local data")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 28)
+                    .padding(.vertical, 24)
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .shadow(color: .black.opacity(0.14), radius: 18, y: 8)
+                    .accessibilityElement(children: .combine)
+                }
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: isSaving)
+        .navigationTitle("Create family")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .foregroundStyle(AppColors.primary)
+                }
+                .accessibilityLabel("Cancel")
+                .disabled(isSaving)
+            }
+
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task {
+                        await saveFamily()
+                    }
+                } label: {
+                    if isSaving {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "checkmark")
+                            .foregroundStyle(AppColors.primary)
+                    }
+                }
+                .accessibilityLabel("Save family")
+                .disabled(!canSave)
+            }
+        }
+        .onAppear {
+            selectedBabyIds = Set(babies.map(\.id))
+        }
+    }
+
+    private func toggleBabySelection(_ baby: Baby) {
+        if selectedBabyIds.contains(baby.id) {
+            selectedBabyIds.remove(baby.id)
+        } else {
+            selectedBabyIds.insert(baby.id)
+        }
+    }
+
+    private func saveFamily() async {
+        let trimmedFamilyName = familyName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmedFamilyName.isEmpty else {
+            errorMessage = "Family name is required."
+            return
+        }
+
+        isSaving = true
+        defer { isSaving = false }
+
+        do {
+            let accessToken = try await authenticationService.validAccessToken()
+            let deviceId = try await deviceService.registerDevice(accessToken: accessToken)
+            let family = try await familyService.createFamily(name: trimmedFamilyName, accessToken: accessToken)
+
+            for baby in babies where selectedBabyIds.contains(baby.id) {
+                try await babyService.createBaby(
+                    familyId: family.id,
+                    baby: baby,
+                    deviceId: deviceId,
+                    accessToken: accessToken
+                )
+            }
+
+            let localStore = SyncedFamilyLocalStore(modelContext: modelContext)
+            try localStore.saveFamily(family, linkedBabyIds: selectedBabyIds)
+
+            try await syncLocalData(
+                familyId: family.id,
+                deviceId: deviceId,
+                accessToken: accessToken
+            )
+
+            errorMessage = nil
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func syncLocalData(
+        familyId: String,
+        deviceId: UUID,
+        accessToken: String
+    ) async throws {
+        guard let familyUuid = UUID(uuidString: familyId) else {
+            throw FamilySetupWizardError.invalidFamilyId
+        }
+
+        let selectedBabies = babies.filter { selectedBabyIds.contains($0.id) }
+        let selectedBabyIdSet = Set(selectedBabies.map(\.id))
+        let now = Date()
+
+        var localChanges: [ClientSyncChangeRequest] = []
+
+        for category in foodCategories {
+            try localChanges.append(.upsert(
+                familyId: familyUuid,
+                entityType: "FoodCategory",
+                entityId: category.id,
+                changedAt: category.updatedAt,
+                payload: FoodCategoryClientSyncPayload(
+                    id: category.id,
+                    familyId: familyUuid,
+                    name: category.name,
+                    sortOrder: category.sortOrder,
+                    isSystem: category.isSystem,
+                    isArchived: category.isArchived,
+                    createdAt: category.createdAt,
+                    updatedAt: category.updatedAt,
+                    deletedAt: nil,
+                    createdByUserId: deviceId,
+                    createdByDeviceId: deviceId,
+                    lastModifiedByUserId: deviceId,
+                    lastModifiedByDeviceId: deviceId,
+                    version: 1
+                )
+            ))
+        }
+
+        for unit in foodUnits {
+            try localChanges.append(.upsert(
+                familyId: familyUuid,
+                entityType: "FoodUnit",
+                entityId: unit.id,
+                changedAt: unit.updatedAt,
+                payload: FoodUnitClientSyncPayload(
+                    id: unit.id,
+                    familyId: familyUuid,
+                    name: unit.name,
+                    symbol: unit.symbol,
+                    sortOrder: unit.sortOrder,
+                    isSystem: unit.isSystem,
+                    isArchived: unit.isArchived,
+                    createdAt: unit.createdAt,
+                    updatedAt: unit.updatedAt,
+                    deletedAt: nil,
+                    createdByUserId: deviceId,
+                    createdByDeviceId: deviceId,
+                    lastModifiedByUserId: deviceId,
+                    lastModifiedByDeviceId: deviceId,
+                    version: 1
+                )
+            ))
+        }
+
+        for foodItem in foodItems {
+            try localChanges.append(.upsert(
+                familyId: familyUuid,
+                entityType: "FoodItem",
+                entityId: foodItem.id,
+                changedAt: foodItem.updatedAt,
+                payload: FoodItemClientSyncPayload(
+                    id: foodItem.id,
+                    familyId: familyUuid,
+                    name: foodItem.name,
+                    categoryId: foodItem.category?.id,
+                    defaultUnitId: foodItem.defaultUnit?.id,
+                    createdAt: foodItem.createdAt,
+                    updatedAt: foodItem.updatedAt,
+                    deletedAt: nil,
+                    createdByUserId: deviceId,
+                    createdByDeviceId: deviceId,
+                    lastModifiedByUserId: deviceId,
+                    lastModifiedByDeviceId: deviceId,
+                    version: 1
+                )
+            ))
+        }
+
+        for event in diaperChangeEvents where selectedBabyIdSet.contains(event.babyId) {
+            try localChanges.append(.upsert(
+                familyId: familyUuid,
+                entityType: "DiaperChangeEvent",
+                entityId: event.id,
+                changedAt: event.createdAt,
+                payload: DiaperChangeEventClientSyncPayload(
+                    id: event.id,
+                    familyId: familyUuid,
+                    babyId: event.babyId,
+                    eventDate: event.date,
+                    diaperInventoryItemId: nil,
+                    inventoryLocationId: event.location?.id,
+                    stockMovementId: event.stockMovementId.flatMap(UUID.init(uuidString:)),
+                    peeLevel: event.peeLevelRaw,
+                    poopLevel: event.poopLevelRaw,
+                    notes: event.notes,
+                    createdAt: event.createdAt,
+                    updatedAt: event.createdAt,
+                    deletedAt: nil,
+                    createdByUserId: deviceId,
+                    createdByDeviceId: deviceId,
+                    lastModifiedByUserId: deviceId,
+                    lastModifiedByDeviceId: deviceId,
+                    version: 1
+                )
+            ))
+        }
+
+        for event in feedingEvents where selectedBabyIdSet.contains(event.babyId) {
+            try localChanges.append(.upsert(
+                familyId: familyUuid,
+                entityType: "FeedingEvent",
+                entityId: event.id,
+                changedAt: event.createdAt,
+                payload: FeedingEventClientSyncPayload(
+                    id: event.id,
+                    familyId: familyUuid,
+                    babyId: event.babyId,
+                    eventDate: event.eventDate,
+                    foodId: event.foodItem?.id,
+                    quantity: event.quantity,
+                    unit: event.unitSymbol ?? event.unitName,
+                    notes: event.notes,
+                    createdAt: event.createdAt,
+                    updatedAt: event.createdAt,
+                    deletedAt: nil,
+                    createdByUserId: deviceId,
+                    createdByDeviceId: deviceId,
+                    lastModifiedByUserId: deviceId,
+                    lastModifiedByDeviceId: deviceId,
+                    version: 1
+                )
+            ))
+        }
+
+        guard !localChanges.isEmpty else {
+            return
+        }
+
+        let syncResponse = try await syncService.sync(
+            deviceId: deviceId,
+            lastKnownServerSequence: 0,
+            localChanges: localChanges,
+            accessToken: accessToken
+        )
+
+        guard syncResponse.conflicts.isEmpty else {
+            throw FamilySetupWizardError.syncConflicts(syncResponse.conflicts.count)
+        }
+    }
+}
+
+private enum FamilySetupWizardError: LocalizedError {
+    case invalidFamilyId
+    case syncConflicts(Int)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidFamilyId:
+            return "The created family identifier is invalid."
+        case .syncConflicts(let count):
+            return "Sync completed with \(count) conflict\(count == 1 ? "" : "s")."
+        }
+    }
+}
+
+private struct BabyClientSyncPayload: Encodable {
+    let id: UUID
+    let familyId: UUID
+    let name: String
+    let birthDate: String?
+    let genderCode: String?
+    let createdAt: Date
+    let updatedAt: Date
+    let deletedAt: Date?
+    let createdByUserId: UUID
+    let createdByDeviceId: UUID
+    let lastModifiedByUserId: UUID
+    let lastModifiedByDeviceId: UUID
+    let version: Int64
+}
+
+private struct DiaperChangeEventClientSyncPayload: Encodable {
+    let id: UUID
+    let familyId: UUID
+    let babyId: UUID
+    let eventDate: Date
+    let diaperInventoryItemId: UUID?
+    let inventoryLocationId: UUID?
+    let stockMovementId: UUID?
+    let peeLevel: Int
+    let poopLevel: Int
+    let notes: String?
+    let createdAt: Date
+    let updatedAt: Date
+    let deletedAt: Date?
+    let createdByUserId: UUID
+    let createdByDeviceId: UUID
+    let lastModifiedByUserId: UUID
+    let lastModifiedByDeviceId: UUID
+    let version: Int64
+}
+
+private struct FeedingEventClientSyncPayload: Encodable {
+    let id: UUID
+    let familyId: UUID
+    let babyId: UUID
+    let eventDate: Date
+    let foodId: UUID?
+    let quantity: Double
+    let unit: String
+    let notes: String?
+    let createdAt: Date
+    let updatedAt: Date
+    let deletedAt: Date?
+    let createdByUserId: UUID
+    let createdByDeviceId: UUID
+    let lastModifiedByUserId: UUID
+    let lastModifiedByDeviceId: UUID
+    let version: Int64
+}
+
+private struct FoodCategoryClientSyncPayload: Encodable {
+    let id: UUID
+    let familyId: UUID
+    let name: String
+    let sortOrder: Int
+    let isSystem: Bool
+    let isArchived: Bool
+    let createdAt: Date
+    let updatedAt: Date
+    let deletedAt: Date?
+    let createdByUserId: UUID
+    let createdByDeviceId: UUID
+    let lastModifiedByUserId: UUID
+    let lastModifiedByDeviceId: UUID
+    let version: Int64
+}
+
+private struct FoodUnitClientSyncPayload: Encodable {
+    let id: UUID
+    let familyId: UUID
+    let name: String
+    let symbol: String
+    let sortOrder: Int
+    let isSystem: Bool
+    let isArchived: Bool
+    let createdAt: Date
+    let updatedAt: Date
+    let deletedAt: Date?
+    let createdByUserId: UUID
+    let createdByDeviceId: UUID
+    let lastModifiedByUserId: UUID
+    let lastModifiedByDeviceId: UUID
+    let version: Int64
+}
+
+private struct FoodItemClientSyncPayload: Encodable {
+    let id: UUID
+    let familyId: UUID
+    let name: String
+    let categoryId: UUID?
+    let defaultUnitId: UUID?
+    let createdAt: Date
+    let updatedAt: Date
+    let deletedAt: Date?
+    let createdByUserId: UUID
+    let createdByDeviceId: UUID
+    let lastModifiedByUserId: UUID
+    let lastModifiedByDeviceId: UUID
+    let version: Int64
+}
+
+
+#Preview("BabyListView - Signed out") {
+    return BabyListView(
+        authenticationService: MockedAuthService(isAuthenticated: false),
+        familyService: MockedFamilyService(families: []),
+        deviceService: MockedDeviceService(),
+        babyService: MockedBabyService(),
+        syncService: MockedSyncService()
+    )
+    .modelContainer(PreviewData.makeContainer())
+}
+
+#Preview("BabyListView - Signed in") {
+    return BabyListView(
+        authenticationService: MockedAuthService(isAuthenticated: true),
+        familyService: MockedFamilyService(families: BimblyticsFamily.previewFamilies),
+        deviceService: MockedDeviceService(),
+        babyService: MockedBabyService(),
+        syncService: MockedSyncService()
+    )
+    .modelContainer(PreviewData.makeContainer())
 }
 
 #Preview("BabyListView - Dark") {
-    return BabyListView()
-        .modelContainer(PreviewData.makeContainer())
-        .preferredColorScheme(.dark)
+    return BabyListView(
+        authenticationService: MockedAuthService(isAuthenticated: true),
+        familyService: MockedFamilyService(families: BimblyticsFamily.previewFamilies),
+        deviceService: MockedDeviceService(),
+        babyService: MockedBabyService(),
+        syncService: MockedSyncService()
+    )
+    .modelContainer(PreviewData.makeContainer())
+    .preferredColorScheme(.dark)
 }

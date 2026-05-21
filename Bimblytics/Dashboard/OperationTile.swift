@@ -22,12 +22,15 @@ struct OperationTile: View {
                     Spacer()
                     item.icon
                         .renderingMode(.template)
+                        .foregroundStyle(AppColors.primary)
                 }
                 Spacer(minLength: 0)
                 Text(item.title)
                     .font(.headline)
+                    .foregroundStyle(AppColors.primary)
                 Text(item.subtitle)
                     .font(.footnote)
+                    .foregroundStyle(AppColors.primary)
             }
             .padding(12)
         }

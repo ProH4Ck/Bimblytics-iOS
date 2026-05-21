@@ -326,7 +326,7 @@ struct ContentView: View {
 
                 return RecentEvent(
                     kind: .diaperChange(change),
-                    icon: "drop.fill",
+                    icon: "DiaperIcon",
                     title: title,
                     subtitle: nil,
                     date: change.date,
@@ -346,7 +346,7 @@ struct ContentView: View {
             events.append(contentsOf: feedingEvents.map { feeding in
                 RecentEvent(
                     kind: .feeding(feeding),
-                    icon: "fork.knife",
+                    icon: "BabyBottleIcon",
                     title: "Feeding · \(feeding.foodName)",
                     subtitle: feeding.quantityDisplayText,
                     date: feeding.eventDate,
@@ -440,10 +440,11 @@ struct RecentEventRow: View {
         HStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(event.color.opacity(0.14))
-                Image(systemName: event.icon)
+                    .fill(AppColors.secondary.opacity(0.14))
+                Image(event.icon)
+                    .renderingMode(.template)
                     .font(.headline)
-                    .foregroundStyle(event.color)
+                    .foregroundStyle(AppColors.secondary)
             }
             .frame(width: 40, height: 40)
 
@@ -494,159 +495,7 @@ struct RecentEventRow: View {
     }
 }
 
-private struct NewFeedingEventView: View {
-    let babyId: UUID
 
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-
-    @Query(
-        filter: #Predicate<FoodUnit> { !$0.isArchived },
-        sort: [
-            SortDescriptor(\FoodUnit.sortOrder),
-            SortDescriptor(\FoodUnit.name)
-        ]
-    )
-    private var units: [FoodUnit]
-
-    @State private var eventDate: Date = .now
-    @State private var selectedFood: FoodItem?
-    @State private var selectedUnit: FoodUnit?
-    @State private var quantityText: String = ""
-    @State private var notes: String = ""
-    @State private var isShowingFoodPicker = false
-
-    private var quantity: Double? {
-        Double(quantityText.replacingOccurrences(of: ",", with: "."))
-    }
-
-    private var canSave: Bool {
-        selectedFood != nil && selectedUnit != nil && (quantity ?? 0) > 0
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("When") {
-                    DatePicker(
-                        "Date and time",
-                        selection: $eventDate,
-                        displayedComponents: [.date, .hourAndMinute]
-                    )
-                }
-
-                Section("Food") {
-                    Button {
-                        isShowingFoodPicker = true
-                    } label: {
-                        HStack {
-                            Text("Food")
-                            Spacer()
-                            Text(selectedFood?.name ?? "Select")
-                                .foregroundStyle(selectedFood == nil ? AppColors.textSecondary : AppColors.textPrimary)
-                        }
-                    }
-
-                    Picker("Unit", selection: $selectedUnit) {
-                        Text("Select")
-                            .tag(Optional<FoodUnit>.none)
-
-                        ForEach(units) { unit in
-                            Text(unitLabel(for: unit))
-                                .tag(Optional(unit))
-                        }
-                    }
-                }
-
-                Section("Quantity") {
-                    TextField("Quantity", text: $quantityText)
-                        .keyboardType(.decimalPad)
-                }
-
-                Section("Notes") {
-                    TextField("Optional notes", text: $notes, axis: .vertical)
-                        .lineLimit(3...6)
-                }
-            }
-            .navigationTitle("New feeding")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        save()
-                    } label: {
-                        Image(systemName: "checkmark")
-                    }
-                    .disabled(!canSave)
-                    .accessibilityLabel("Save feeding")
-                }
-            }
-            .sheet(isPresented: $isShowingFoodPicker) {
-                NavigationStack {
-                    FoodCatalogView { food in
-                        selectedFood = food
-                        selectedUnit = food.defaultUnit ?? selectedUnit
-                        isShowingFoodPicker = false
-                    }
-                    .navigationTitle("Select food")
-                }
-            }
-            .onChange(of: selectedFood) { _, newValue in
-                if selectedUnit == nil {
-                    selectedUnit = newValue?.defaultUnit
-                }
-            }
-        }
-    }
-
-    private func save() {
-        guard let selectedFood,
-              let selectedUnit,
-              let quantity,
-              quantity > 0 else {
-            return
-        }
-
-        let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        let event = FeedingEvent(
-            babyId: babyId,
-            eventDate: eventDate,
-            foodName: selectedFood.name,
-            foodCategoryName: selectedFood.category?.name,
-            quantity: quantity,
-            unitName: selectedUnit.name,
-            unitSymbol: selectedUnit.symbol,
-            notes: trimmedNotes.isEmpty ? nil : trimmedNotes,
-            foodItem: selectedFood
-        )
-
-        modelContext.insert(event)
-
-        do {
-            try modelContext.save()
-            dismiss()
-        } catch {
-            assertionFailure("Failed to save feeding event: \(error.localizedDescription)")
-        }
-    }
-
-    private func unitLabel(for unit: FoodUnit) -> String {
-        let trimmedSymbol = unit.symbol.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if trimmedSymbol.isEmpty {
-            return unit.name
-        }
-
-        return "\(unit.name) (\(trimmedSymbol))"
-    }
-}
 
 #Preview("ContentView") {
     ContentView()
