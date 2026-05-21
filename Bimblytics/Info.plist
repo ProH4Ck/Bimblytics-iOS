@@ -2,34 +2,26 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleDisplayName</key>
-    <string>$(BIMBLYTICS_APP_DISPLAY_NAME)</string>
-
-    <key>CFBundleURLTypes</key>
-    <array>
-        <dict>
-            <key>CFBundleURLName</key>
-            <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
-            <key>CFBundleURLSchemes</key>
-            <array>
-                <string>$(BIMBLYTICS_URL_SCHEME)</string>
-            </array>
-        </dict>
-    </array>
-
-    <key>BIMBLYTICS_API_BASE_URL</key>
-    <string>$(BIMBLYTICS_API_BASE_URL)</string>
-
-    <key>BIMBLYTICS_AUTH_BASE_URL</key>
-    <string>$(BIMBLYTICS_AUTH_BASE_URL)</string>
-
-    <key>BIMBLYTICS_OIDC_CLIENT_ID</key>
-    <string>$(BIMBLYTICS_OIDC_CLIENT_ID)</string>
-
-    <key>BIMBLYTICS_REDIRECT_URI</key>
-    <string>$(BIMBLYTICS_REDIRECT_URI)</string>
-
-    <key>BIMBLYTICS_POST_LOGOUT_REDIRECT_URI</key>
-    <string>$(BIMBLYTICS_POST_LOGOUT_REDIRECT_URI)</string>
+	<key>BIMBLYTICS_API_BASE_URL</key>
+	<string>$(BIMBLYTICS_API_BASE_URL)</string>
+	<key>BIMBLYTICS_AUTH_BASE_URL</key>
+	<string>$(BIMBLYTICS_AUTH_BASE_URL)</string>
+	<key>BIMBLYTICS_OIDC_CLIENT_ID</key>
+	<string>$(BIMBLYTICS_OIDC_CLIENT_ID)</string>
+	<key>BIMBLYTICS_POST_LOGOUT_REDIRECT_URI</key>
+	<string>$(BIMBLYTICS_POST_LOGOUT_REDIRECT_URI)</string>
+	<key>BIMBLYTICS_REDIRECT_URI</key>
+	<string>$(BIMBLYTICS_REDIRECT_URI)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(BIMBLYTICS_URL_SCHEME)</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
