@@ -12,6 +12,8 @@ import SwiftData
 final class DiaperStockMovement {
     @Attribute(.unique) var id: UUID
 
+    var familyId: String?
+
     var type: DiaperStockMovementType.RawValue
 
     /// Positive for loads, negative for consumptions/discards.
@@ -38,6 +40,7 @@ final class DiaperStockMovement {
 
     init(
         id: UUID = UUID(),
+        familyId: String? = nil,
         type: DiaperStockMovementType,
         quantityDelta: Int,
         resultingQuantity: Int? = nil,
@@ -49,6 +52,7 @@ final class DiaperStockMovement {
         inventoryItem: DiaperInventoryItem? = nil
     ) {
         self.id = id
+        self.familyId = familyId
         self.type = type.rawValue
         self.quantityDelta = quantityDelta
         self.resultingQuantity = resultingQuantity

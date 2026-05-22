@@ -11,6 +11,7 @@ import SwiftData
 @Model
 final class FoodUnit {
     @Attribute(.unique) var id: UUID
+    var familyId: String?
     var name: String
     var symbol: String
     var sortOrder: Int
@@ -24,6 +25,7 @@ final class FoodUnit {
 
     init(
         id: UUID = UUID(),
+        familyId: String? = nil,
         name: String,
         symbol: String,
         sortOrder: Int = 0,
@@ -33,6 +35,7 @@ final class FoodUnit {
         updatedAt: Date = .now
     ) {
         self.id = id
+        self.familyId = familyId
         self.name = name
         self.symbol = symbol
         self.sortOrder = sortOrder

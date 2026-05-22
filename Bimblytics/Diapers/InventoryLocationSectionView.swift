@@ -18,7 +18,10 @@ struct InventoryLocationSectionView: View {
 
     private var visibleItems: [DiaperInventoryItem] {
         location.inventoryItems
-            .filter { $0.quantityOnHand > 0 || !$0.movements.isEmpty }
+            .filter { item in
+                item.familyId == location.familyId &&
+                (item.quantityOnHand > 0 || item.movements.contains { $0.familyId == location.familyId })
+            }
             .sorted { lhs, rhs in
                 lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
             }

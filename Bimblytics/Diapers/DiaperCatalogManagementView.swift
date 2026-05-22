@@ -12,10 +12,22 @@ struct DiaperCatalogManagementView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
-    @Query(sort: [
-        SortDescriptor(\DiaperSize.code)
-    ])
+    private let familyId: String?
+
+    @Query
     private var diaperSizes: [DiaperSize]
+
+    init(familyId: String? = nil) {
+        self.familyId = familyId
+        _diaperSizes = Query(
+            filter: #Predicate<DiaperSize> { size in
+                size.familyId == familyId
+            },
+            sort: [
+                SortDescriptor(\DiaperSize.code)
+            ]
+        )
+    }
 
     @State private var isImporting: Bool = false
     @State private var resultMessage: String?
@@ -110,7 +122,7 @@ struct DiaperCatalogManagementView: View {
                 .accessibilityLabel("Download and import JSON")
 
                 NavigationLink {
-                    NewDiaperCatalogEntryView()
+                    NewDiaperCatalogEntryView(familyId: familyId)
                 } label: {
                     Image(systemName: "plus.rectangle.on.folder")
                 }

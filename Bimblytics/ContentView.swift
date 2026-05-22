@@ -10,6 +10,7 @@ import SwiftUI
 
 struct ContentView: View {
     @Query(sort: [SortDescriptor(\Baby.name)]) private var babies: [Baby]
+    @Query(sort: [SortDescriptor(\SyncedFamily.name)]) private var families: [SyncedFamily]
     @State private var selectedBabyID: UUID?
     @State private var showingDiaperForm = false
     @State private var showingFeedingForm = false
@@ -64,7 +65,7 @@ struct ContentView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         NavigationLink {
-                            DiaperInventoryOverviewView()
+                            DiaperInventoryOverviewView(familyId: selectedBaby?.familyId)
                         } label: {
                             Label {
                                 Text("Diaper inventory")
@@ -75,7 +76,7 @@ struct ContentView: View {
                         }
 
                         NavigationLink {
-                            FoodCatalogView()
+                            FoodCatalogView(familyId: selectedBaby?.familyId)
                         } label: {
                             Label("Food catalog", systemImage: "fork.knife")
                         }
@@ -87,13 +88,13 @@ struct ContentView: View {
                 }
             }
             .sheet(isPresented: $showingDiaperForm) {
-                if let selectedBabyID {
-                    NewDiaperChangeView(babyId: selectedBabyID)
+                if let selectedBaby {
+                    NewDiaperChangeView(babyId: selectedBaby.id, familyId: selectedBaby.familyId)
                 }
             }
             .sheet(isPresented: $showingFeedingForm) {
-                if let selectedBabyID {
-                    NewFeedingEventView(babyId: selectedBabyID)
+                if let selectedBaby {
+                    NewFeedingEventView(babyId: selectedBaby.id, familyId: selectedBaby.familyId)
                 }
             }
             .sheet(isPresented: $showingBabyList) {
@@ -159,6 +160,8 @@ struct ContentView: View {
                         return true
                     }
                 }
+
+                familyLabel(for: baby)
 
                 if !items.isEmpty {
                     sectionHeader(title: "Quick actions")
@@ -292,6 +295,27 @@ struct ContentView: View {
                 kind: .feeding
             )
         ]
+    }
+
+    @ViewBuilder
+    private func familyLabel(for baby: Baby) -> some View {
+        if let familyName = familyName(for: baby) {
+            Label(familyName, systemImage: "person.3.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(AppColors.secondary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(AppColors.secondary.opacity(0.10), in: Capsule())
+                .accessibilityLabel("Family \(familyName)")
+        }
+    }
+
+    private func familyName(for baby: Baby) -> String? {
+        guard let familyId = baby.familyId else {
+            return nil
+        }
+
+        return families.first(where: { $0.familyId == familyId })?.name
     }
 
     private func recentEvents(for baby: Baby) -> [RecentEvent] {
@@ -501,6 +525,13 @@ struct RecentEventRow: View {
     ContentView()
         .background(AppColors.background)
         .modelContainer(PreviewData.makeContainer())
+        .tint(AppColors.primary)
+}
+
+#Preview("ContentView - Family") {
+    ContentView()
+        .background(AppColors.background)
+        .modelContainer(PreviewData.makeFamilyContainer())
         .tint(AppColors.primary)
 }
 

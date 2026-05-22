@@ -17,15 +17,10 @@ struct NewInventoryLocationView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
-    @Query(
-        filter: #Predicate<InventoryLocation> { !$0.isArchived },
-        sort: [
-            SortDescriptor(\InventoryLocation.sortOrder),
-            SortDescriptor(\InventoryLocation.name)
-        ]
-    )
+    @Query
     private var existingLocations: [InventoryLocation]
 
+    private let familyId: String?
     private let mode: InventoryLocationEditorMode
 
     @State private var name: String
@@ -34,15 +29,36 @@ struct NewInventoryLocationView: View {
     @State private var errorMessage: String?
     @State private var isSaving: Bool = false
 
-    init() {
+    init(familyId: String? = nil) {
+        self.familyId = familyId
         self.mode = .create
+        _existingLocations = Query(
+            filter: #Predicate<InventoryLocation> { location in
+                location.familyId == familyId && !location.isArchived
+            },
+            sort: [
+                SortDescriptor(\InventoryLocation.sortOrder),
+                SortDescriptor(\InventoryLocation.name)
+            ]
+        )
         self._name = State(initialValue: "")
         self._notes = State(initialValue: "")
         self._makeDefault = State(initialValue: false)
     }
 
     init(location: InventoryLocation) {
+        self.familyId = location.familyId
         self.mode = .edit(location)
+        let familyId = location.familyId
+        _existingLocations = Query(
+            filter: #Predicate<InventoryLocation> { location in
+                location.familyId == familyId && !location.isArchived
+            },
+            sort: [
+                SortDescriptor(\InventoryLocation.sortOrder),
+                SortDescriptor(\InventoryLocation.name)
+            ]
+        )
         self._name = State(initialValue: location.name)
         self._notes = State(initialValue: location.notes ?? "")
         self._makeDefault = State(initialValue: location.isDefault)
@@ -185,6 +201,7 @@ struct NewInventoryLocationView: View {
                 let nextSortOrder = (existingLocations.map(\.sortOrder).max() ?? -1) + 1
 
                 let newLocation = InventoryLocation(
+                    familyId: familyId,
                     name: locationName,
                     notes: storedNotes,
                     sortOrder: nextSortOrder,

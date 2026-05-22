@@ -12,6 +12,8 @@ import SwiftData
 final class DiaperInventoryItem {
     @Attribute(.unique) var id: UUID
 
+    var familyId: String?
+
     /// Current quantity available in stock for a given diaper size in a given location.
     var quantityOnHand: Int
 
@@ -38,6 +40,7 @@ final class DiaperInventoryItem {
 
     init(
         id: UUID = UUID(),
+        familyId: String? = nil,
         quantityOnHand: Int = 0,
         lowStockThreshold: Int? = nil,
         packageQuantity: Int? = nil,
@@ -48,6 +51,7 @@ final class DiaperInventoryItem {
         location: InventoryLocation? = nil
     ) {
         self.id = id
+        self.familyId = familyId
         self.quantityOnHand = max(0, quantityOnHand)
         self.lowStockThreshold = lowStockThreshold
         self.packageQuantity = packageQuantity

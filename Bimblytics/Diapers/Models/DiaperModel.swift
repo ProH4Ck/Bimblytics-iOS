@@ -14,6 +14,7 @@ final class DiaperModel {
 
     @Attribute(.unique) var remoteId: String?
 
+    var familyId: String?
     var name: String
     var type: DiaperType.RawValue
     var ageCategory: DiaperAgeCategory.RawValue
@@ -32,6 +33,7 @@ final class DiaperModel {
     init(
         id: UUID = UUID(),
         remoteId: String? = nil,
+        familyId: String? = nil,
         name: String,
         type: DiaperType,
         ageCategory: DiaperAgeCategory,
@@ -43,6 +45,7 @@ final class DiaperModel {
     ) {
         self.id = id
         self.remoteId = remoteId
+        self.familyId = familyId
         self.name = name
         self.type = type.rawValue
         self.ageCategory = ageCategory.rawValue

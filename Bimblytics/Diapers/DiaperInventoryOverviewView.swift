@@ -11,14 +11,23 @@ import SwiftData
 struct DiaperInventoryOverviewView: View {
     @Environment(\.modelContext) private var modelContext
 
-    @Query(
-        filter: #Predicate<InventoryLocation> { !$0.isArchived },
-        sort: [
-            SortDescriptor(\InventoryLocation.sortOrder),
-            SortDescriptor(\InventoryLocation.name)
-        ]
-    )
+    private let familyId: String?
+
+    @Query
     private var locations: [InventoryLocation]
+
+    init(familyId: String? = nil) {
+        self.familyId = familyId
+        _locations = Query(
+            filter: #Predicate<InventoryLocation> { location in
+                location.familyId == familyId && !location.isArchived
+            },
+            sort: [
+                SortDescriptor(\InventoryLocation.sortOrder),
+                SortDescriptor(\InventoryLocation.name)
+            ]
+        )
+    }
 
     @State private var isShowingNewLocationSheet: Bool = false
     @State private var isShowingAddStockSheet: Bool = false
@@ -87,21 +96,21 @@ struct DiaperInventoryOverviewView: View {
             }
             .sheet(isPresented: $isShowingNewLocationSheet) {
                 NavigationStack {
-                    NewInventoryLocationView()
+                    NewInventoryLocationView(familyId: familyId)
                 }
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $isShowingAddStockSheet) {
                 NavigationStack {
-                    DiaperCatalogSearchView()
+                    DiaperCatalogSearchView(familyId: familyId)
                 }
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $isShowingNewDiaperModelSheet) {
                 NavigationStack {
-                    NewDiaperCatalogEntryView()
+                    NewDiaperCatalogEntryView(familyId: familyId)
                 }
                 .presentationDetents([.large])
                 .presentationDragIndicator(.hidden)
@@ -115,7 +124,7 @@ struct DiaperInventoryOverviewView: View {
             }
             .sheet(isPresented: $isShowingCatalogManagementSheet) {
                 NavigationStack {
-                    DiaperCatalogManagementView()
+                    DiaperCatalogManagementView(familyId: familyId)
                 }
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)

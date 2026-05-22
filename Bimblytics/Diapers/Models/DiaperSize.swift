@@ -13,6 +13,7 @@ final class DiaperSize {
     @Attribute(.unique) var id: UUID
     @Attribute(.unique) var remoteId: String?
 
+    var familyId: String?
     var code: String
     var descriptionText: String?
     var sizeRange: String
@@ -27,6 +28,7 @@ final class DiaperSize {
     init(
         id: UUID = UUID(),
         remoteId: String? = nil,
+        familyId: String? = nil,
         code: String,
         descriptionText: String? = nil,
         sizeRange: String,
@@ -36,6 +38,7 @@ final class DiaperSize {
     ) {
         self.id = id
         self.remoteId = remoteId
+        self.familyId = familyId
         self.code = code
         self.descriptionText = descriptionText
         self.sizeRange = sizeRange

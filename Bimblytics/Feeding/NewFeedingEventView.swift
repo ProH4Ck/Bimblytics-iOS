@@ -10,18 +10,27 @@ import SwiftData
 
 struct NewFeedingEventView: View {
     let babyId: UUID
+    private let familyId: String?
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
-    @Query(
-        filter: #Predicate<FoodUnit> { !$0.isArchived },
-        sort: [
-            SortDescriptor(\FoodUnit.sortOrder),
-            SortDescriptor(\FoodUnit.name)
-        ]
-    )
+    @Query
     private var units: [FoodUnit]
+
+    init(babyId: UUID, familyId: String? = nil) {
+        self.babyId = babyId
+        self.familyId = familyId
+        _units = Query(
+            filter: #Predicate<FoodUnit> { unit in
+                unit.familyId == familyId && !unit.isArchived
+            },
+            sort: [
+                SortDescriptor(\FoodUnit.sortOrder),
+                SortDescriptor(\FoodUnit.name)
+            ]
+        )
+    }
 
     @State private var eventDate: Date = .now
     @State private var selectedFood: FoodItem?
@@ -106,7 +115,7 @@ struct NewFeedingEventView: View {
             }
             .sheet(isPresented: $isShowingFoodPicker) {
                 NavigationStack {
-                    FoodCatalogView { food in
+                    FoodCatalogView(familyId: familyId) { food in
                         selectedFood = food
                         selectedUnit = food.defaultUnit ?? selectedUnit
                         isShowingFoodPicker = false

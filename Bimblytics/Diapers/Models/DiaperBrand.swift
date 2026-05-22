@@ -15,6 +15,7 @@ final class DiaperBrand {
     /// Backend identifier
     @Attribute(.unique) var remoteId: String?
 
+    var familyId: String?
     var name: String
     var countryCode: String
     var source: DiaperSource.RawValue
@@ -25,12 +26,14 @@ final class DiaperBrand {
     init(
         id: UUID = UUID(),
         remoteId: String? = nil,
+        familyId: String? = nil,
         name: String,
         countryCode: String,
         source: DiaperSource
     ) {
         self.id = id
         self.remoteId = remoteId
+        self.familyId = familyId
         self.name = name
         self.countryCode = countryCode
         self.source = source.rawValue

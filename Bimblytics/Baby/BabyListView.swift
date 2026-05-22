@@ -28,6 +28,47 @@ struct BabyListView<AuthService: BimblyticsAuthServicing, FamilyService: Bimblyt
     @State private var authenticationErrorMessage: String?
     @State private var familyErrorMessage: String?
 
+    private var syncedFamilyIds: Set<String> {
+        Set(syncedFamilies.map(\.familyId))
+    }
+
+    private var syncedFamilyGroups: [SyncedFamilyGroup] {
+        syncedFamilies.map { family in
+            SyncedFamilyGroup(
+                family: family,
+                babies: babies
+                    .filter { $0.familyId == family.familyId }
+                    .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            )
+        }
+    }
+
+    private var babiesWithoutSyncedFamily: [Baby] {
+        babies
+            .filter { baby in
+                guard let familyId = baby.familyId else {
+                    return true
+                }
+
+                return !syncedFamilyIds.contains(familyId)
+            }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private var accountFamiliesNotSyncedOnDevice: [BimblyticsFamily] {
+        familyService.families
+            .filter { !syncedFamilyIds.contains($0.id) }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private var babiesAvailableForNewFamily: [Baby] {
+        babies.filter { $0.familyId == nil }
+    }
+
+    private var canCreateFamily: Bool {
+        !babiesAvailableForNewFamily.isEmpty
+    }
+
     init(
         authenticationService: AuthService,
         familyService: FamilyService,
@@ -45,74 +86,29 @@ struct BabyListView<AuthService: BimblyticsAuthServicing, FamilyService: Bimblyt
     var body: some View {
         NavigationStack {
             List {
-                ForEach(babies) { baby in
-                    NavigationLink {
-                        BabyDetailView(baby: baby)
-                    } label: {
-                        HStack(spacing: 12) {
-                            ZStack {
-                                Circle()
-                                    .fill(baby.gender == .male ? AppColors.colorMale : AppColors.colorFemale)
-                                Image(systemName: "person.fill")
-                            }
-                            .frame(width: 36, height: 36)
-                            
-                            VStack(alignment: .leading) {
-                                Text(baby.name)
-                                Text(baby.ageText())
-                                    .font(.footnote)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                }
+                babySections
 
                 Section {
                     if authenticationService.isAuthenticated {
-                        if syncedFamilies.isEmpty {
-                            if familyService.isLoading {
-                                HStack(spacing: 12) {
-                                    ProgressView()
-                                        .controlSize(.small)
+                        if familyService.isLoading {
+                            HStack(spacing: 12) {
+                                ProgressView()
+                                    .controlSize(.small)
 
-                                    Text("Loading families...")
-                                        .foregroundStyle(.secondary)
-                                }
-                            } else {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("No families yet")
-                                        .font(.subheadline.weight(.semibold))
-                                    Text("Create your first family to start sharing baby tracking.")
-                                        .font(.footnote)
-                                        .foregroundStyle(.secondary)
-                                }
+                                Text("Loading families...")
+                                    .foregroundStyle(.secondary)
                             }
-                        } else {
-                            ForEach(syncedFamilies) { family in
-                                HStack(spacing: 12) {
-                                    ZStack {
-                                        Circle()
-                                            .fill(AppColors.accent.opacity(0.15))
-                                        Image(systemName: "house.fill")
-                                            .foregroundStyle(AppColors.accent)
-                                    }
-                                    .frame(width: 36, height: 36)
-
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(family.name)
-                                            .font(.subheadline.weight(.semibold))
-                                        Text("Family")
-                                            .font(.footnote)
-                                            .foregroundStyle(.secondary)
-                                    }
-
-                                    Spacer()
-
-                                    if familyService.isLoading {
-                                        ProgressView()
-                                            .controlSize(.small)
-                                    }
-                                }
+                        } else if accountFamiliesNotSyncedOnDevice.isEmpty && syncedFamilies.isEmpty {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("No families yet")
+                                    .font(.subheadline.weight(.semibold))
+                                Text("Create your first family to start sharing baby tracking.")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else if !accountFamiliesNotSyncedOnDevice.isEmpty {
+                            ForEach(accountFamiliesNotSyncedOnDevice) { family in
+                                unsyncedAccountFamilyRow(family)
                             }
                         }
 
@@ -137,7 +133,7 @@ struct BabyListView<AuthService: BimblyticsAuthServicing, FamilyService: Bimblyt
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Create family")
                                         .foregroundStyle(AppColors.primary)
-                                    Text("Invite caregivers and share baby tracking")
+                                    Text(canCreateFamily ? "Invite caregivers and share baby tracking" : "All babies are already in a family")
                                         .font(.footnote)
                                         .foregroundStyle(.secondary)
                                 }
@@ -151,6 +147,7 @@ struct BabyListView<AuthService: BimblyticsAuthServicing, FamilyService: Bimblyt
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Create family")
+                        .disabled(!canCreateFamily)
 
                         Button(role: .destructive) {
                             showingLogoutConfirmation = true
@@ -281,8 +278,6 @@ struct BabyListView<AuthService: BimblyticsAuthServicing, FamilyService: Bimblyt
                 do {
                     let accessToken = try await authenticationService.validAccessToken()
                     try await familyService.loadFamilies(accessToken: accessToken)
-                    let localStore = SyncedFamilyLocalStore(modelContext: modelContext)
-                    try localStore.saveFamilies(familyService.families)
                     familyErrorMessage = nil
                 } catch {
                     familyErrorMessage = error.localizedDescription
@@ -291,6 +286,88 @@ struct BabyListView<AuthService: BimblyticsAuthServicing, FamilyService: Bimblyt
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+
+    @ViewBuilder
+    private var babySections: some View {
+        if syncedFamilies.isEmpty {
+            ForEach(babies) { baby in
+                babyRow(baby)
+            }
+        } else {
+            ForEach(syncedFamilyGroups) { group in
+                Section(group.family.name) {
+                    if group.babies.isEmpty {
+                        Text("No babies synced on this device.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(group.babies) { baby in
+                            babyRow(baby)
+                        }
+                    }
+                }
+            }
+
+            if !babiesWithoutSyncedFamily.isEmpty {
+                Section("On this device") {
+                    ForEach(babiesWithoutSyncedFamily) { baby in
+                        babyRow(baby)
+                    }
+                }
+            }
+        }
+    }
+
+    private func babyRow(_ baby: Baby) -> some View {
+        NavigationLink {
+            BabyDetailView(baby: baby)
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(baby.gender == .male ? AppColors.colorMale : AppColors.colorFemale)
+                    Image(systemName: "person.fill")
+                }
+                .frame(width: 36, height: 36)
+
+                VStack(alignment: .leading) {
+                    Text(baby.name)
+                    Text(baby.ageText())
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func unsyncedAccountFamilyRow(_ family: BimblyticsFamily) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(AppColors.accent.opacity(0.15))
+                Image(systemName: "house.fill")
+                    .foregroundStyle(AppColors.accent)
+            }
+            .frame(width: 36, height: 36)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(family.name)
+                    .font(.subheadline.weight(.semibold))
+                Text("Not synced on this device")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+private struct SyncedFamilyGroup: Identifiable {
+    let family: SyncedFamily
+    let babies: [Baby]
+
+    var id: String {
+        family.familyId
     }
 }
 
@@ -311,6 +388,12 @@ private struct FamilySetupWizardView<AuthService: BimblyticsAuthServicing, Famil
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \DiaperChangeEvent.createdAt, order: .forward) private var diaperChangeEvents: [DiaperChangeEvent]
     @Query(sort: \FeedingEvent.createdAt, order: .forward) private var feedingEvents: [FeedingEvent]
+    @Query private var diaperBrands: [DiaperBrand]
+    @Query private var diaperModels: [DiaperModel]
+    @Query private var diaperSizes: [DiaperSize]
+    @Query private var inventoryLocations: [InventoryLocation]
+    @Query private var diaperInventoryItems: [DiaperInventoryItem]
+    @Query private var diaperStockMovements: [DiaperStockMovement]
     @Query(sort: \FoodCategory.sortOrder, order: .forward) private var foodCategories: [FoodCategory]
     @Query(sort: \FoodUnit.sortOrder, order: .forward) private var foodUnits: [FoodUnit]
     @Query(sort: \FoodItem.name, order: .forward) private var foodItems: [FoodItem]
@@ -326,8 +409,12 @@ private struct FamilySetupWizardView<AuthService: BimblyticsAuthServicing, Famil
     @State private var isSaving = false
     @State private var errorMessage: String?
 
+    private var babiesAvailableForNewFamily: [Baby] {
+        babies.filter { $0.familyId == nil }
+    }
+
     private var canSave: Bool {
-        !familyName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && authenticationService.isAuthenticated && !isSaving
+        !familyName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && authenticationService.isAuthenticated && !selectedBabyIds.isEmpty && !isSaving
     }
 
     var body: some View {
@@ -343,11 +430,11 @@ private struct FamilySetupWizardView<AuthService: BimblyticsAuthServicing, Famil
             }
 
             Section {
-                if babies.isEmpty {
+                if babiesAvailableForNewFamily.isEmpty {
                     Text("No babies available on this device.")
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(babies) { baby in
+                    ForEach(babiesAvailableForNewFamily) { baby in
                         Button {
                             toggleBabySelection(baby)
                         } label: {
@@ -456,7 +543,7 @@ private struct FamilySetupWizardView<AuthService: BimblyticsAuthServicing, Famil
             }
         }
         .onAppear {
-            selectedBabyIds = Set(babies.map(\.id))
+            selectedBabyIds = Set(babiesAvailableForNewFamily.map(\.id))
         }
     }
 
@@ -484,7 +571,7 @@ private struct FamilySetupWizardView<AuthService: BimblyticsAuthServicing, Famil
             let deviceId = try await deviceService.registerDevice(accessToken: accessToken)
             let family = try await familyService.createFamily(name: trimmedFamilyName, accessToken: accessToken)
 
-            for baby in babies where selectedBabyIds.contains(baby.id) {
+            for baby in babiesAvailableForNewFamily where selectedBabyIds.contains(baby.id) {
                 try await babyService.createBaby(
                     familyId: family.id,
                     baby: baby,
@@ -495,6 +582,7 @@ private struct FamilySetupWizardView<AuthService: BimblyticsAuthServicing, Famil
 
             let localStore = SyncedFamilyLocalStore(modelContext: modelContext)
             try localStore.saveFamily(family, linkedBabyIds: selectedBabyIds)
+            try assignLocalData(toFamilyId: family.id)
 
             try await syncLocalData(
                 familyId: family.id,
@@ -509,6 +597,50 @@ private struct FamilySetupWizardView<AuthService: BimblyticsAuthServicing, Famil
         }
     }
 
+    private func assignLocalData(toFamilyId familyId: String) throws {
+        for baby in babies where selectedBabyIds.contains(baby.id) {
+            baby.familyId = familyId
+        }
+
+        for brand in diaperBrands where brand.familyId == nil {
+            brand.familyId = familyId
+        }
+
+        for model in diaperModels where model.familyId == nil {
+            model.familyId = familyId
+        }
+
+        for size in diaperSizes where size.familyId == nil {
+            size.familyId = familyId
+        }
+
+        for location in inventoryLocations where location.familyId == nil {
+            location.familyId = familyId
+        }
+
+        for item in diaperInventoryItems where item.familyId == nil {
+            item.familyId = familyId
+        }
+
+        for movement in diaperStockMovements where movement.familyId == nil {
+            movement.familyId = familyId
+        }
+
+        for category in foodCategories where category.familyId == nil {
+            category.familyId = familyId
+        }
+
+        for unit in foodUnits where unit.familyId == nil {
+            unit.familyId = familyId
+        }
+
+        for foodItem in foodItems where foodItem.familyId == nil {
+            foodItem.familyId = familyId
+        }
+
+        try modelContext.save()
+    }
+
     private func syncLocalData(
         familyId: String,
         deviceId: UUID,
@@ -520,11 +652,10 @@ private struct FamilySetupWizardView<AuthService: BimblyticsAuthServicing, Famil
 
         let selectedBabies = babies.filter { selectedBabyIds.contains($0.id) }
         let selectedBabyIdSet = Set(selectedBabies.map(\.id))
-        let now = Date()
 
         var localChanges: [ClientSyncChangeRequest] = []
 
-        for category in foodCategories {
+        for category in foodCategories where category.familyId == familyId {
             try localChanges.append(.upsert(
                 familyId: familyUuid,
                 entityType: "FoodCategory",
@@ -549,7 +680,7 @@ private struct FamilySetupWizardView<AuthService: BimblyticsAuthServicing, Famil
             ))
         }
 
-        for unit in foodUnits {
+        for unit in foodUnits where unit.familyId == familyId {
             try localChanges.append(.upsert(
                 familyId: familyUuid,
                 entityType: "FoodUnit",
@@ -575,7 +706,7 @@ private struct FamilySetupWizardView<AuthService: BimblyticsAuthServicing, Famil
             ))
         }
 
-        for foodItem in foodItems {
+        for foodItem in foodItems where foodItem.familyId == familyId {
             try localChanges.append(.upsert(
                 familyId: familyUuid,
                 entityType: "FoodItem",

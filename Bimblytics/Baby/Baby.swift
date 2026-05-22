@@ -17,6 +17,7 @@ enum Gender: String, CaseIterable, Identifiable, Codable {
 @Model
 final class Baby: Identifiable {
     @Attribute(.unique) var id: UUID
+    var familyId: String?
     var name: String
     var birthDate: Date
 
@@ -35,12 +36,14 @@ final class Baby: Identifiable {
 
     init(
         id: UUID = UUID(),
+        familyId: String? = nil,
         name: String,
         birthDate: Date,
         gender: Gender,
         diaperEnabled: Bool
     ) {
         self.id = id
+        self.familyId = familyId
         self.name = name
         self.birthDate = birthDate
         self.genderCode = gender.rawValue

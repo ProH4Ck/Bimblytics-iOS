@@ -86,9 +86,13 @@ struct DiaperInventoryItemDetailView: View {
     }
 
     private var sortedMovements: [DiaperStockMovement] {
-        inventoryItem.movements.sorted { lhs, rhs in
-            lhs.createdAt > rhs.createdAt
-        }
+        inventoryItem.movements
+            .filter { movement in
+                movement.familyId == inventoryItem.familyId
+            }
+            .sorted { lhs, rhs in
+                lhs.createdAt > rhs.createdAt
+            }
     }
 
     @ViewBuilder

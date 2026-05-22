@@ -13,18 +13,24 @@ struct TransferDiaperStockView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     
-    @Query(
-        filter: #Predicate<InventoryLocation> { location in
-            !location.isArchived
-        },
-        sort: [
-            SortDescriptor(\InventoryLocation.sortOrder),
-            SortDescriptor(\InventoryLocation.name)
-        ]
-    )
+    @Query
     private var locations: [InventoryLocation]
     
     let inventoryItem: DiaperInventoryItem
+
+    init(inventoryItem: DiaperInventoryItem) {
+        self.inventoryItem = inventoryItem
+        let familyId = inventoryItem.familyId
+        _locations = Query(
+            filter: #Predicate<InventoryLocation> { location in
+                location.familyId == familyId && !location.isArchived
+            },
+            sort: [
+                SortDescriptor(\InventoryLocation.sortOrder),
+                SortDescriptor(\InventoryLocation.name)
+            ]
+        )
+    }
     
     @State private var quantityText: String = ""
     @State private var selectedDestinationLocationId: PersistentIdentifier?
@@ -176,6 +182,7 @@ struct TransferDiaperStockView: View {
         }
         
         return location.inventoryItems.first(where: { item in
+            item.familyId == inventoryItem.familyId &&
             item.diaperSize?.persistentModelID == diaperSizeId
         })?.quantityOnHand ?? 0
     }

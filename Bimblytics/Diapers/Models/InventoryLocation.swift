@@ -12,6 +12,8 @@ import SwiftData
 final class InventoryLocation {
     @Attribute(.unique) var id: UUID
 
+    var familyId: String?
+
     /// Display name shown to the user.
     var name: String
 
@@ -35,6 +37,7 @@ final class InventoryLocation {
 
     init(
         id: UUID = UUID(),
+        familyId: String? = nil,
         name: String,
         notes: String? = nil,
         sortOrder: Int = 0,
@@ -44,6 +47,7 @@ final class InventoryLocation {
         updatedAt: Date = .now
     ) {
         self.id = id
+        self.familyId = familyId
         self.name = name
         self.notes = notes
         self.sortOrder = sortOrder

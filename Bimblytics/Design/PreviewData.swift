@@ -10,7 +10,7 @@ import SwiftData
 
 enum PreviewData {
     @MainActor
-    static func makeContainer() -> ModelContainer {
+    static func makeContainer(includeFamily: Bool = false) -> ModelContainer {
         let schema = Schema([
             Baby.self,
             DiaperBrand.self,
@@ -39,7 +39,7 @@ enum PreviewData {
                 configurations: [configuration]
             )
 
-            seed(container.mainContext)
+            seed(container.mainContext, includeFamily: includeFamily)
 
             return container
         } catch {
@@ -48,8 +48,16 @@ enum PreviewData {
     }
 
     @MainActor
-    static func seed(_ context: ModelContext) {
+    static func makeFamilyContainer() -> ModelContainer {
+        makeContainer(includeFamily: true)
+    }
+
+    @MainActor
+    static func seed(_ context: ModelContext, includeFamily: Bool = false) {
+        let familyId = includeFamily ? "4DA18E54-4A6C-4815-8E44-D1A7AAE9B8B0" : nil
+
         let baby1 = Baby(
+            familyId: familyId,
             name: "Adele",
             birthDate: Calendar.current.date(byAdding: .month, value: -3, to: Date()) ?? Date(),
             gender: .female,
@@ -57,6 +65,7 @@ enum PreviewData {
         )
 
         let baby2 = Baby(
+            familyId: familyId,
             name: "Emanuele",
             birthDate: Calendar.current.date(byAdding: .year, value: -2, to: Date()) ?? Date(),
             gender: .male,
@@ -66,7 +75,23 @@ enum PreviewData {
         context.insert(baby1)
         context.insert(baby2)
 
+        if let familyId {
+            context.insert(SyncedFamily(
+                familyId: familyId,
+                name: "Curati Family"
+            ))
+            context.insert(SyncedFamilyBabyLink(
+                familyId: familyId,
+                babyId: baby1.id
+            ))
+            context.insert(SyncedFamilyBabyLink(
+                familyId: familyId,
+                babyId: baby2.id
+            ))
+        }
+
         let milkCategory = FoodCategory(
+            familyId: familyId,
             name: "Milk",
             sortOrder: 0,
             isSystem: true,
@@ -74,6 +99,7 @@ enum PreviewData {
         )
 
         let babyFoodCategory = FoodCategory(
+            familyId: familyId,
             name: "Baby food",
             sortOrder: 1,
             isSystem: true,
@@ -81,6 +107,7 @@ enum PreviewData {
         )
 
         let fruitCategory = FoodCategory(
+            familyId: familyId,
             name: "Fruit",
             sortOrder: 2,
             isSystem: true,
@@ -88,6 +115,7 @@ enum PreviewData {
         )
 
         let snackCategory = FoodCategory(
+            familyId: familyId,
             name: "Snack",
             sortOrder: 3,
             isSystem: false,
@@ -100,6 +128,7 @@ enum PreviewData {
         context.insert(snackCategory)
 
         let millilitersUnit = FoodUnit(
+            familyId: familyId,
             name: "Milliliters",
             symbol: "ml",
             sortOrder: 0,
@@ -108,6 +137,7 @@ enum PreviewData {
         )
 
         let gramsUnit = FoodUnit(
+            familyId: familyId,
             name: "Grams",
             symbol: "g",
             sortOrder: 1,
@@ -116,6 +146,7 @@ enum PreviewData {
         )
 
         let portionUnit = FoodUnit(
+            familyId: familyId,
             name: "Portion",
             symbol: "portion",
             sortOrder: 2,
@@ -124,6 +155,7 @@ enum PreviewData {
         )
 
         let bottleUnit = FoodUnit(
+            familyId: familyId,
             name: "Bottle",
             symbol: "bottle",
             sortOrder: 3,
@@ -137,30 +169,35 @@ enum PreviewData {
         context.insert(bottleUnit)
 
         let formulaMilk = FoodItem(
+            familyId: familyId,
             name: "Formula milk",
             category: milkCategory,
             defaultUnit: millilitersUnit
         )
 
         let breastMilk = FoodItem(
+            familyId: familyId,
             name: "Breast milk",
             category: milkCategory,
             defaultUnit: millilitersUnit
         )
 
         let applePuree = FoodItem(
+            familyId: familyId,
             name: "Apple puree",
             category: fruitCategory,
             defaultUnit: gramsUnit
         )
 
         let vegetablePuree = FoodItem(
+            familyId: familyId,
             name: "Vegetable puree",
             category: babyFoodCategory,
             defaultUnit: gramsUnit
         )
 
         let riceCream = FoodItem(
+            familyId: familyId,
             name: "Rice cream",
             category: snackCategory,
             defaultUnit: portionUnit
@@ -173,6 +210,7 @@ enum PreviewData {
         context.insert(riceCream)
 
         let home = InventoryLocation(
+            familyId: familyId,
             name: "Home",
             notes: "Main nursery closet",
             sortOrder: 0,
@@ -181,6 +219,7 @@ enum PreviewData {
         )
 
         let bag = InventoryLocation(
+            familyId: familyId,
             name: "Outing bag",
             notes: "Diaper bag for quick trips",
             sortOrder: 1,
@@ -189,6 +228,7 @@ enum PreviewData {
         )
 
         let secondHome = InventoryLocation(
+            familyId: familyId,
             name: "Second home",
             notes: "Weekend house",
             sortOrder: 2,
@@ -202,6 +242,7 @@ enum PreviewData {
 
         let pampers = DiaperBrand(
             remoteId: "8c2b50b6-a032-4756-bfa8-d562aed99fe7",
+            familyId: familyId,
             name: "Pampers",
             countryCode: "IT",
             source: .remoteCatalog
@@ -209,6 +250,7 @@ enum PreviewData {
 
         let huggies = DiaperBrand(
             remoteId: "80449d28-c230-40d7-8e36-41222c171148",
+            familyId: familyId,
             name: "Huggies",
             countryCode: "IT",
             source: .remoteCatalog
@@ -219,6 +261,7 @@ enum PreviewData {
 
         let progressi = DiaperModel(
             remoteId: "16295ea0-b86c-4f54-b69b-bf89c0348ed5",
+            familyId: familyId,
             name: "Progressi",
             type: .disposable,
             ageCategory: .child,
@@ -228,6 +271,7 @@ enum PreviewData {
 
         let babyDry = DiaperModel(
             remoteId: "90000fc0-de6d-4cda-a04e-6fa6b61619c7",
+            familyId: familyId,
             name: "Baby Dry",
             type: .disposable,
             ageCategory: .child,
@@ -237,6 +281,7 @@ enum PreviewData {
 
         let littleSwimmers = DiaperModel(
             remoteId: "02773107-c39a-4b4a-8e53-7e28b3cf6d35",
+            familyId: familyId,
             name: "Little Swimmers",
             type: .swimDisposable,
             ageCategory: .child,
@@ -250,6 +295,7 @@ enum PreviewData {
 
         let progressiSize3 = DiaperSize(
             remoteId: "30f8cd36-ae52-440c-be38-fea7b8cbcc93",
+            familyId: familyId,
             code: "3",
             descriptionText: "Midi",
             sizeRange: "4 - 9 kg",
@@ -260,6 +306,7 @@ enum PreviewData {
 
         let progressiSize4 = DiaperSize(
             remoteId: "95ea325e-8067-4218-90a5-2476e9b3db6b",
+            familyId: familyId,
             code: "4",
             descriptionText: "Maxi",
             sizeRange: "7 - 18 kg",
@@ -270,6 +317,7 @@ enum PreviewData {
 
         let progressiSize5 = DiaperSize(
             remoteId: "7840ba79-4d5e-41e8-b746-fe105ce9aaa7",
+            familyId: familyId,
             code: "5",
             descriptionText: "Junior",
             sizeRange: "11 - 25 kg",
@@ -280,6 +328,7 @@ enum PreviewData {
 
         let progressiSize6 = DiaperSize(
             remoteId: "bee32e18-2b86-4719-871f-a857318290a8",
+            familyId: familyId,
             code: "6",
             descriptionText: "Large",
             sizeRange: "16+ kg",
@@ -290,6 +339,7 @@ enum PreviewData {
 
         let babyDrySize4 = DiaperSize(
             remoteId: "77ed58bf-746e-4c57-867b-0872ed57ba2c",
+            familyId: familyId,
             code: "4",
             descriptionText: "Maxi",
             sizeRange: "7 - 18 kg",
@@ -300,6 +350,7 @@ enum PreviewData {
 
         let swimmersSize2 = DiaperSize(
             remoteId: "3cb54865-c141-453f-95d0-ba530b68059b",
+            familyId: familyId,
             code: "2",
             descriptionText: nil,
             sizeRange: "3 - 6 kg",
@@ -316,6 +367,7 @@ enum PreviewData {
         context.insert(swimmersSize2)
 
         let homeProgressi = DiaperInventoryItem(
+            familyId: familyId,
             quantityOnHand: 42,
             lowStockThreshold: 10,
             packageQuantity: 24,
@@ -325,6 +377,7 @@ enum PreviewData {
         )
 
         let homeBabyDry = DiaperInventoryItem(
+            familyId: familyId,
             quantityOnHand: 7,
             lowStockThreshold: 8,
             packageQuantity: 20,
@@ -334,6 +387,7 @@ enum PreviewData {
         )
 
         let bagProgressi = DiaperInventoryItem(
+            familyId: familyId,
             quantityOnHand: 5,
             lowStockThreshold: 4,
             packageQuantity: nil,
@@ -343,6 +397,7 @@ enum PreviewData {
         )
 
         let secondHomeSwimmers = DiaperInventoryItem(
+            familyId: familyId,
             quantityOnHand: 0,
             lowStockThreshold: 2,
             packageQuantity: 12,
@@ -358,6 +413,7 @@ enum PreviewData {
 
         let movements: [DiaperStockMovement] = [
             DiaperStockMovement(
+                familyId: familyId,
                 type: .purchase,
                 quantityDelta: 24,
                 resultingQuantity: 24,
@@ -366,6 +422,7 @@ enum PreviewData {
                 inventoryItem: homeProgressi
             ),
             DiaperStockMovement(
+                familyId: familyId,
                 type: .manualLoad,
                 quantityDelta: 18,
                 resultingQuantity: 42,
@@ -374,6 +431,7 @@ enum PreviewData {
                 inventoryItem: homeProgressi
             ),
             DiaperStockMovement(
+                familyId: familyId,
                 type: .consumption,
                 quantityDelta: -1,
                 resultingQuantity: 7,
@@ -382,6 +440,7 @@ enum PreviewData {
                 inventoryItem: homeBabyDry
             ),
             DiaperStockMovement(
+                familyId: familyId,
                 type: .transferIn,
                 quantityDelta: 5,
                 resultingQuantity: 5,
@@ -390,6 +449,7 @@ enum PreviewData {
                 inventoryItem: bagProgressi
             ),
             DiaperStockMovement(
+                familyId: familyId,
                 type: .consumption,
                 quantityDelta: -2,
                 resultingQuantity: 0,

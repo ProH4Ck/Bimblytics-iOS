@@ -11,19 +11,26 @@ import SwiftData
 struct DiaperCatalogSearchView: View {
     @Environment(\.modelContext) private var modelContext
 
-    @Query(
-        sort: [
-            SortDescriptor(\DiaperSize.code)
-        ]
-    )
+    private let familyId: String?
+
+    @Query
     private var diaperSizes: [DiaperSize]
 
     @State private var searchText: String = ""
     @State private var isShowingNewDiaperEntrySheet: Bool = false
     private let onSelect: ((DiaperSize) -> Void)?
 
-    init(onSelect: ((DiaperSize) -> Void)? = nil) {
+    init(familyId: String? = nil, onSelect: ((DiaperSize) -> Void)? = nil) {
+        self.familyId = familyId
         self.onSelect = onSelect
+        _diaperSizes = Query(
+            filter: #Predicate<DiaperSize> { size in
+                size.familyId == familyId
+            },
+            sort: [
+                SortDescriptor(\DiaperSize.code)
+            ]
+        )
     }
 
     var body: some View {
@@ -48,7 +55,7 @@ struct DiaperCatalogSearchView: View {
         }
         .sheet(isPresented: $isShowingNewDiaperEntrySheet) {
             NavigationStack {
-                NewDiaperCatalogEntryView()
+                NewDiaperCatalogEntryView(familyId: familyId)
             }
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
@@ -161,14 +168,20 @@ struct DiaperCatalogSearchView: View {
     }
 
     private func totalQuantity(for diaperSize: DiaperSize) -> Int {
-        diaperSize.inventoryItems.reduce(0) { partialResult, item in
-            partialResult + item.quantityOnHand
-        }
+        diaperSize.inventoryItems
+            .filter { item in
+                item.familyId == familyId
+            }
+            .reduce(0) { partialResult, item in
+                partialResult + item.quantityOnHand
+            }
     }
 
     private func stockByLocation(for diaperSize: DiaperSize) -> [LocationStockSummary] {
         diaperSize.inventoryItems
-            .filter { $0.quantityOnHand > 0 }
+            .filter { item in
+                item.familyId == familyId && item.quantityOnHand > 0
+            }
             .compactMap { item in
                 guard let location = item.location else {
                     return nil

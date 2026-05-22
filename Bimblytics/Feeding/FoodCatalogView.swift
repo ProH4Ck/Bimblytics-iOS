@@ -9,25 +9,35 @@ import SwiftUI
 import SwiftData
 
 struct FoodCatalogView: View {
+    private let familyId: String?
     private let onSelect: ((FoodItem) -> Void)?
 
-    init(onSelect: ((FoodItem) -> Void)? = nil) {
+    init(familyId: String? = nil, onSelect: ((FoodItem) -> Void)? = nil) {
+        self.familyId = familyId
         self.onSelect = onSelect
+        _foodItems = Query(
+            filter: #Predicate<FoodItem> { item in
+                item.familyId == familyId
+            },
+            sort: [
+                SortDescriptor(\FoodItem.name)
+            ]
+        )
+        _categories = Query(
+            filter: #Predicate<FoodCategory> { category in
+                category.familyId == familyId
+            },
+            sort: [
+                SortDescriptor(\FoodCategory.sortOrder),
+                SortDescriptor(\FoodCategory.name)
+            ]
+        )
     }
 
-    @Query(
-        sort: [
-            SortDescriptor(\FoodItem.name)
-        ]
-    )
+    @Query
     private var foodItems: [FoodItem]
 
-    @Query(
-        sort: [
-            SortDescriptor(\FoodCategory.sortOrder),
-            SortDescriptor(\FoodCategory.name)
-        ]
-    )
+    @Query
     private var categories: [FoodCategory]
 
     @State private var searchText: String = ""
@@ -46,13 +56,13 @@ struct FoodCatalogView: View {
                     ToolbarItem(placement: .topBarTrailing) {
                         Menu {
                             NavigationLink {
-                                FoodCategoriesView()
+                                FoodCategoriesView(familyId: familyId)
                             } label: {
                                 Label("Manage categories", systemImage: "square.grid.2x2")
                             }
 
                             NavigationLink {
-                                FoodUnitsView()
+                                FoodUnitsView(familyId: familyId)
                             } label: {
                                 Label("Manage units", systemImage: "scalemass")
                             }
@@ -74,7 +84,7 @@ struct FoodCatalogView: View {
             }
             .sheet(isPresented: $isShowingNewFoodSheet) {
                 NavigationStack {
-                    NewFoodItemView()
+                    NewFoodItemView(familyId: familyId)
                 }
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
@@ -257,27 +267,39 @@ private struct NewFoodItemView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
-    @Query(
-        filter: #Predicate<FoodCategory> { !$0.isArchived },
-        sort: [
-            SortDescriptor(\FoodCategory.sortOrder),
-            SortDescriptor(\FoodCategory.name)
-        ]
-    )
+    private let familyId: String?
+
+    @Query
     private var categories: [FoodCategory]
 
-    @Query(
-        filter: #Predicate<FoodUnit> { !$0.isArchived },
-        sort: [
-            SortDescriptor(\FoodUnit.sortOrder),
-            SortDescriptor(\FoodUnit.name)
-        ]
-    )
+    @Query
     private var units: [FoodUnit]
 
     @State private var name: String = ""
     @State private var selectedCategoryId: FoodCategory.ID?
     @State private var selectedUnitId: FoodUnit.ID?
+
+    init(familyId: String? = nil) {
+        self.familyId = familyId
+        _categories = Query(
+            filter: #Predicate<FoodCategory> { category in
+                category.familyId == familyId && !category.isArchived
+            },
+            sort: [
+                SortDescriptor(\FoodCategory.sortOrder),
+                SortDescriptor(\FoodCategory.name)
+            ]
+        )
+        _units = Query(
+            filter: #Predicate<FoodUnit> { unit in
+                unit.familyId == familyId && !unit.isArchived
+            },
+            sort: [
+                SortDescriptor(\FoodUnit.sortOrder),
+                SortDescriptor(\FoodUnit.name)
+            ]
+        )
+    }
 
     private var trimmedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -346,6 +368,7 @@ private struct NewFoodItemView: View {
         }
 
         let foodItem = FoodItem(
+            familyId: familyId,
             name: trimmedName,
             category: selectedCategory,
             defaultUnit: selectedUnit

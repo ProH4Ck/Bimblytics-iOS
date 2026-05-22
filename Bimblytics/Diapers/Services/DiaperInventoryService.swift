@@ -52,6 +52,7 @@ final class DiaperInventoryService {
         }
 
         let inventoryItem = DiaperInventoryItem(
+            familyId: diaperSize.familyId ?? location.familyId,
             quantityOnHand: 0,
             lowStockThreshold: lowStockThreshold,
             packageQuantity: packageQuantity,
@@ -286,8 +287,11 @@ final class DiaperInventoryService {
         return inventoryItems.reduce(0) { $0 + $1.quantityOnHand }
     }
 
-    func getLowStockItems() throws -> [DiaperInventoryItem] {
+    func getLowStockItems(familyId: String? = nil) throws -> [DiaperInventoryItem] {
         let descriptor = FetchDescriptor<DiaperInventoryItem>(
+            predicate: #Predicate<DiaperInventoryItem> { item in
+                item.familyId == familyId
+            },
             sortBy: [
                 SortDescriptor(\.updatedAt, order: .reverse)
             ]
@@ -306,8 +310,10 @@ final class DiaperInventoryService {
     ) throws -> DiaperInventoryItem? {
         let diaperSizeId = diaperSize.persistentModelID
         let locationId = location.persistentModelID
+        let familyId = diaperSize.familyId ?? location.familyId
 
         let predicate = #Predicate<DiaperInventoryItem> { item in
+            item.familyId == familyId &&
             item.diaperSize?.persistentModelID == diaperSizeId &&
             item.location?.persistentModelID == locationId
         }
@@ -320,8 +326,10 @@ final class DiaperInventoryService {
 
     private func fetchInventoryItems(for diaperSize: DiaperSize) throws -> [DiaperInventoryItem] {
         let diaperSizeId = diaperSize.persistentModelID
+        let familyId = diaperSize.familyId
 
         let predicate = #Predicate<DiaperInventoryItem> { item in
+            item.familyId == familyId &&
             item.diaperSize?.persistentModelID == diaperSizeId
         }
 
@@ -351,6 +359,7 @@ final class DiaperInventoryService {
         inventoryItem.updatedAt = .now
 
         let movement = DiaperStockMovement(
+            familyId: inventoryItem.familyId,
             type: type,
             quantityDelta: quantityDelta,
             resultingQuantity: newQuantity,

@@ -12,13 +12,23 @@ struct FoodCategoriesView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var editMode: EditMode = .inactive
 
-    @Query(
-        sort: [
-            SortDescriptor(\FoodCategory.sortOrder),
-            SortDescriptor(\FoodCategory.name)
-        ]
-    )
+    private let familyId: String?
+
+    @Query
     private var categories: [FoodCategory]
+
+    init(familyId: String? = nil) {
+        self.familyId = familyId
+        _categories = Query(
+            filter: #Predicate<FoodCategory> { category in
+                category.familyId == familyId
+            },
+            sort: [
+                SortDescriptor(\FoodCategory.sortOrder),
+                SortDescriptor(\FoodCategory.name)
+            ]
+        )
+    }
 
     @State private var searchText: String = ""
     @State private var isShowingNewCategorySheet: Bool = false
@@ -55,7 +65,7 @@ struct FoodCategoriesView: View {
         }
         .sheet(isPresented: $isShowingNewCategorySheet) {
             NavigationStack {
-                FoodCategoryFormView()
+                FoodCategoryFormView(familyId: familyId)
             }
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
@@ -227,11 +237,13 @@ private struct FoodCategoryFormView: View {
     @Environment(\.modelContext) private var modelContext
 
     private let category: FoodCategory?
+    private let familyId: String?
 
     @State private var name: String
 
-    init(category: FoodCategory? = nil) {
+    init(familyId: String? = nil, category: FoodCategory? = nil) {
         self.category = category
+        self.familyId = category?.familyId ?? familyId
         _name = State(initialValue: category?.name ?? "")
     }
 
@@ -300,9 +312,16 @@ private struct FoodCategoryFormView: View {
             category.name = trimmedName
             category.updatedAt = .now
         } else {
-            let nextSortOrder = (try? modelContext.fetch(FetchDescriptor<FoodCategory>()))?.count ?? 0
+            let familyId = familyId
+            let descriptor = FetchDescriptor<FoodCategory>(
+                predicate: #Predicate<FoodCategory> { category in
+                    category.familyId == familyId
+                }
+            )
+            let nextSortOrder = (try? modelContext.fetch(descriptor))?.count ?? 0
 
             let newCategory = FoodCategory(
+                familyId: familyId,
                 name: trimmedName,
                 sortOrder: nextSortOrder,
                 isSystem: false,

@@ -12,7 +12,9 @@ struct NewDiaperCatalogEntryView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     
-    @Query(sort: [SortDescriptor(\DiaperBrand.name)])
+    private let familyId: String?
+
+    @Query
     private var brands: [DiaperBrand]
     
     @State private var selectedBrandId: PersistentIdentifier?
@@ -26,6 +28,16 @@ struct NewDiaperCatalogEntryView: View {
     @State private var sizeDrafts: [NewDiaperSizeDraft] = [NewDiaperSizeDraft()]
     @State private var errorMessage: String?
     @State private var isSaving: Bool = false
+
+    init(familyId: String? = nil) {
+        self.familyId = familyId
+        _brands = Query(
+            filter: #Predicate<DiaperBrand> { brand in
+                brand.familyId == familyId
+            },
+            sort: [SortDescriptor(\DiaperBrand.name)]
+        )
+    }
     
     var body: some View {
         Form {
@@ -241,9 +253,11 @@ struct NewDiaperCatalogEntryView: View {
             return []
         }
         
-        return resolvedBrandForModelLookup.models.sorted {
-            $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-        }
+        return resolvedBrandForModelLookup.models
+            .filter { $0.familyId == familyId }
+            .sorted {
+                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
     }
     
     private var selectedModelDisplayText: String {
@@ -328,9 +342,11 @@ struct NewDiaperCatalogEntryView: View {
             let model = try resolveModel(for: brand)
             
             let existingCodes = Set(
-                model.sizes.map {
-                    $0.code.trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase
-                }
+                model.sizes
+                    .filter { $0.familyId == familyId }
+                    .map {
+                        $0.code.trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase
+                    }
             )
             
             guard existingCodes.isDisjoint(with: enteredCodes) else {
@@ -341,6 +357,7 @@ struct NewDiaperCatalogEntryView: View {
             
             for sizeDraft in sizeDrafts {
                 let newSize = DiaperSize(
+                    familyId: familyId,
                     code: sizeDraft.code,
                     descriptionText: sizeDraft.descriptionText.isEmpty ? nil : sizeDraft.descriptionText,
                     sizeRange: sizeDraft.sizeRange,
@@ -392,6 +409,7 @@ struct NewDiaperCatalogEntryView: View {
             }
             
             let newBrand = DiaperBrand(
+                familyId: familyId,
                 name: brandName,
                 countryCode: Locale.current.region?.identifier ?? "IT",
                 source: .userCustom
@@ -419,6 +437,7 @@ struct NewDiaperCatalogEntryView: View {
             }
             
             if let existingModel = brand.models.first(where: {
+                $0.familyId == familyId &&
                 $0.name.trimmingCharacters(in: .whitespacesAndNewlines)
                     .localizedCaseInsensitiveCompare(modelName) == .orderedSame
             }) {
@@ -427,6 +446,7 @@ struct NewDiaperCatalogEntryView: View {
             
             let newModel = DiaperModel(
                 remoteId: nil,
+                familyId: familyId,
                 name: modelName,
                 type: selectedType,
                 ageCategory: selectedAgeCategory,

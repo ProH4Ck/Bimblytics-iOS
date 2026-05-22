@@ -11,6 +11,7 @@ import SwiftData
 @Model
 final class FoodItem {
     @Attribute(.unique) var id: UUID
+    var familyId: String?
     var name: String
     var createdAt: Date
     var updatedAt: Date
@@ -23,6 +24,7 @@ final class FoodItem {
 
     init(
         id: UUID = UUID(),
+        familyId: String? = nil,
         name: String,
         category: FoodCategory? = nil,
         defaultUnit: FoodUnit? = nil,
@@ -30,6 +32,7 @@ final class FoodItem {
         updatedAt: Date = .now
     ) {
         self.id = id
+        self.familyId = familyId
         self.name = name
         self.category = category
         self.defaultUnit = defaultUnit

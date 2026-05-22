@@ -12,18 +12,24 @@ struct AddDiaperStockView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
 
-    @Query(
-        filter: #Predicate<InventoryLocation> { location in
-            !location.isArchived
-        },
-        sort: [
-            SortDescriptor(\InventoryLocation.sortOrder),
-            SortDescriptor(\InventoryLocation.name)
-        ]
-    )
+    @Query
     private var locations: [InventoryLocation]
 
     let diaperSize: DiaperSize
+
+    init(diaperSize: DiaperSize) {
+        self.diaperSize = diaperSize
+        let familyId = diaperSize.familyId
+        _locations = Query(
+            filter: #Predicate<InventoryLocation> { location in
+                location.familyId == familyId && !location.isArchived
+            },
+            sort: [
+                SortDescriptor(\InventoryLocation.sortOrder),
+                SortDescriptor(\InventoryLocation.name)
+            ]
+        )
+    }
 
     @State private var quantityText: String = ""
     @State private var purchaseDate: Date = .now

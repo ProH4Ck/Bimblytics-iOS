@@ -12,13 +12,23 @@ struct FoodUnitsView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var editMode: EditMode = .inactive
 
-    @Query(
-        sort: [
-            SortDescriptor(\FoodUnit.sortOrder),
-            SortDescriptor(\FoodUnit.name)
-        ]
-    )
+    private let familyId: String?
+
+    @Query
     private var units: [FoodUnit]
+
+    init(familyId: String? = nil) {
+        self.familyId = familyId
+        _units = Query(
+            filter: #Predicate<FoodUnit> { unit in
+                unit.familyId == familyId
+            },
+            sort: [
+                SortDescriptor(\FoodUnit.sortOrder),
+                SortDescriptor(\FoodUnit.name)
+            ]
+        )
+    }
 
     @State private var searchText: String = ""
     @State private var isShowingNewUnitSheet: Bool = false
@@ -55,7 +65,7 @@ struct FoodUnitsView: View {
         }
         .sheet(isPresented: $isShowingNewUnitSheet) {
             NavigationStack {
-                FoodUnitFormView()
+                FoodUnitFormView(familyId: familyId)
             }
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
@@ -295,12 +305,14 @@ private struct FoodUnitFormView: View {
     @Environment(\.modelContext) private var modelContext
 
     private let unit: FoodUnit?
+    private let familyId: String?
 
     @State private var name: String
     @State private var symbol: String
 
-    init(unit: FoodUnit? = nil) {
+    init(familyId: String? = nil, unit: FoodUnit? = nil) {
         self.unit = unit
+        self.familyId = unit?.familyId ?? familyId
         _name = State(initialValue: unit?.name ?? "")
         _symbol = State(initialValue: unit?.symbol ?? "")
     }
@@ -374,9 +386,16 @@ private struct FoodUnitFormView: View {
             unit.symbol = trimmedSymbol
             unit.updatedAt = .now
         } else {
-            let nextSortOrder = (try? modelContext.fetch(FetchDescriptor<FoodUnit>()))?.count ?? 0
+            let familyId = familyId
+            let descriptor = FetchDescriptor<FoodUnit>(
+                predicate: #Predicate<FoodUnit> { unit in
+                    unit.familyId == familyId
+                }
+            )
+            let nextSortOrder = (try? modelContext.fetch(descriptor))?.count ?? 0
 
             let newUnit = FoodUnit(
+                familyId: familyId,
                 name: trimmedName,
                 symbol: trimmedSymbol,
                 sortOrder: nextSortOrder,

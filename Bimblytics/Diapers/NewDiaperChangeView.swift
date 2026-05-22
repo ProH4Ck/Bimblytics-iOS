@@ -13,12 +13,30 @@ struct NewDiaperChangeView: View {
     @Environment(\.modelContext) private var modelContext
 
     let babyId: UUID
+    private let familyId: String?
 
-    @Query(sort: [SortDescriptor(\InventoryLocation.name)])
+    @Query
     private var locations: [InventoryLocation]
 
-    @Query(sort: [SortDescriptor(\DiaperSize.code)])
+    @Query
     private var diaperSizes: [DiaperSize]
+
+    init(babyId: UUID, familyId: String? = nil) {
+        self.babyId = babyId
+        self.familyId = familyId
+        _locations = Query(
+            filter: #Predicate<InventoryLocation> { location in
+                location.familyId == familyId && !location.isArchived
+            },
+            sort: [SortDescriptor(\InventoryLocation.name)]
+        )
+        _diaperSizes = Query(
+            filter: #Predicate<DiaperSize> { size in
+                size.familyId == familyId
+            },
+            sort: [SortDescriptor(\DiaperSize.code)]
+        )
+    }
 
     @State private var selectedDate: Date = .now
     @State private var selectedLocation: InventoryLocation?
@@ -128,7 +146,7 @@ struct NewDiaperChangeView: View {
             }
             .sheet(isPresented: $isShowingDiaperSearch) {
                 NavigationStack {
-                    DiaperCatalogSearchView { size in
+                    DiaperCatalogSearchView(familyId: familyId) { size in
                         selectedSize = size
                         isShowingDiaperSearch = false
                     }
@@ -158,6 +176,7 @@ struct NewDiaperChangeView: View {
         }
 
         return selectedLocation.inventoryItems.first(where: { item in
+            item.familyId == familyId &&
             item.diaperSize?.persistentModelID == selectedSize.persistentModelID
         })?.quantityOnHand ?? 0
     }
