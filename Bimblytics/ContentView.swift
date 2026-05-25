@@ -15,6 +15,7 @@ struct ContentView: View {
     @State private var showingDiaperForm = false
     @State private var showingFeedingForm = false
     @State private var showingBabyList = false
+    @State private var pendingFamilyInvitationToken: String?
     @State private var pendingEventDeletion: RecentEvent?
     @State private var isShowingDeleteEventAlert = false
 
@@ -97,8 +98,10 @@ struct ContentView: View {
                     NewFeedingEventView(babyId: selectedBaby.id, familyId: selectedBaby.familyId)
                 }
             }
-            .sheet(isPresented: $showingBabyList) {
-                BabyListView()
+            .sheet(isPresented: $showingBabyList, onDismiss: {
+                pendingFamilyInvitationToken = nil
+            }) {
+                BabyListView(invitationToken: pendingFamilyInvitationToken)
             }
             .alert("Delete event?", isPresented: $isShowingDeleteEventAlert, presenting: pendingEventDeletion) { event in
                 Button("Delete", role: .destructive) {
@@ -120,6 +123,14 @@ struct ContentView: View {
             }
             .onChange(of: babies) { _, _ in
                 ensureSelectedBaby()
+            }
+            .onOpenURL { url in
+                guard let token = AppEnvironment.familyInvitationToken(from: url) else {
+                    return
+                }
+
+                pendingFamilyInvitationToken = token
+                showingBabyList = true
             }
         }
         .fullScreenCover(isPresented: Binding(get: { shouldShowOnboarding }, set: { _ in })) {
@@ -315,7 +326,9 @@ struct ContentView: View {
             return nil
         }
 
-        return families.first(where: { $0.familyId == familyId })?.name
+        return families.first(where: {
+            $0.familyId.caseInsensitiveCompare(familyId) == .orderedSame
+        })?.name
     }
 
     private func recentEvents(for baby: Baby) -> [RecentEvent] {

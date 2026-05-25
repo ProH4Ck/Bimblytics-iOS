@@ -12,6 +12,10 @@
 	<string>$(BIMBLYTICS_POST_LOGOUT_REDIRECT_URI)</string>
 	<key>BIMBLYTICS_REDIRECT_URI</key>
 	<string>$(BIMBLYTICS_REDIRECT_URI)</string>
+	<key>BIMBLYTICS_URL_SCHEME</key>
+	<string>$(BIMBLYTICS_URL_SCHEME)</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Scan a family invitation QR code to join an existing family.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

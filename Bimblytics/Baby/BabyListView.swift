@@ -19,6 +19,10 @@ struct BabyListView<AuthService: BimblyticsAuthServicing, FamilyService: Bimblyt
     @Environment(\.dismiss) private var dismiss
     @State private var showingAddBaby = false
     @State private var showingCreateFamilyWizard = false
+    @State private var showingJoinFamily = false
+    @State private var showingInvitation = false
+    @State private var invitationFamily: BimblyticsFamily?
+    @State private var invitationToken: String?
     @State private var showingLogoutConfirmation = false
     @StateObject private var authenticationService: AuthService
     @StateObject private var familyService: FamilyService
@@ -28,16 +32,12 @@ struct BabyListView<AuthService: BimblyticsAuthServicing, FamilyService: Bimblyt
     @State private var authenticationErrorMessage: String?
     @State private var familyErrorMessage: String?
 
-    private var syncedFamilyIds: Set<String> {
-        Set(syncedFamilies.map(\.familyId))
-    }
-
     private var syncedFamilyGroups: [SyncedFamilyGroup] {
         syncedFamilies.map { family in
             SyncedFamilyGroup(
                 family: family,
                 babies: babies
-                    .filter { $0.familyId == family.familyId }
+                    .filter { $0.familyId?.caseInsensitiveCompare(family.familyId) == .orderedSame }
                     .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
             )
         }
@@ -50,14 +50,20 @@ struct BabyListView<AuthService: BimblyticsAuthServicing, FamilyService: Bimblyt
                     return true
                 }
 
-                return !syncedFamilyIds.contains(familyId)
+                return !syncedFamilies.contains {
+                    $0.familyId.caseInsensitiveCompare(familyId) == .orderedSame
+                }
             }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     private var accountFamiliesNotSyncedOnDevice: [BimblyticsFamily] {
         familyService.families
-            .filter { !syncedFamilyIds.contains($0.id) }
+            .filter { family in
+                !syncedFamilies.contains {
+                    $0.familyId.caseInsensitiveCompare(family.id) == .orderedSame
+                }
+            }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
@@ -74,13 +80,16 @@ struct BabyListView<AuthService: BimblyticsAuthServicing, FamilyService: Bimblyt
         familyService: FamilyService,
         deviceService: DeviceService,
         babyService: BabyService,
-        syncService: SyncService
+        syncService: SyncService,
+        invitationToken: String? = nil
     ) {
+        _showingJoinFamily = State(initialValue: invitationToken != nil)
         _authenticationService = StateObject(wrappedValue: authenticationService)
         _familyService = StateObject(wrappedValue: familyService)
         _deviceService = StateObject(wrappedValue: deviceService)
         _babyService = StateObject(wrappedValue: babyService)
         _syncService = StateObject(wrappedValue: syncService)
+        _invitationToken = State(initialValue: invitationToken)
     }
 
     var body: some View {
@@ -148,6 +157,37 @@ struct BabyListView<AuthService: BimblyticsAuthServicing, FamilyService: Bimblyt
                         .buttonStyle(.plain)
                         .accessibilityLabel("Create family")
                         .disabled(!canCreateFamily)
+
+                        Button {
+                            invitationToken = nil
+                            showingJoinFamily = true
+                        } label: {
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    Circle()
+                                        .fill(AppColors.accent.opacity(0.15))
+                                    Image(systemName: "qrcode.viewfinder")
+                                        .foregroundStyle(AppColors.accent)
+                                }
+                                .frame(width: 36, height: 36)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Join an existing family")
+                                        .foregroundStyle(AppColors.primary)
+                                    Text("Scan an invitation QR code")
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "chevron.right")
+                                    .font(.footnote.weight(.semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Join an existing family")
 
                         Button(role: .destructive) {
                             showingLogoutConfirmation = true
@@ -232,6 +272,24 @@ struct BabyListView<AuthService: BimblyticsAuthServicing, FamilyService: Bimblyt
                     syncService: syncService
                 )
             }
+            .navigationDestination(isPresented: $showingJoinFamily) {
+                JoinFamilyInvitationView(
+                    initialToken: invitationToken,
+                    authenticationService: authenticationService,
+                    familyService: familyService,
+                    deviceService: deviceService,
+                    syncService: syncService
+                )
+            }
+            .navigationDestination(isPresented: $showingInvitation) {
+                if let invitationFamily {
+                    FamilyInvitationQRCodeView(
+                        family: invitationFamily,
+                        authenticationService: authenticationService,
+                        familyService: familyService
+                    )
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
@@ -252,7 +310,12 @@ struct BabyListView<AuthService: BimblyticsAuthServicing, FamilyService: Bimblyt
                 }
             }
             .onOpenURL { url in
-                authenticationService.handleCallback(url)
+                if let token = AppEnvironment.familyInvitationToken(from: url) {
+                    invitationToken = token
+                    showingJoinFamily = true
+                } else {
+                    authenticationService.handleCallback(url)
+                }
             }
             .confirmationDialog(
                 "Disconnect account?",
@@ -306,6 +369,11 @@ struct BabyListView<AuthService: BimblyticsAuthServicing, FamilyService: Bimblyt
                             babyRow(baby)
                         }
                     }
+
+                    familyActions(for: BimblyticsFamily(
+                        id: group.family.familyId,
+                        name: group.family.name
+                    ))
                 }
             }
 
@@ -358,7 +426,40 @@ struct BabyListView<AuthService: BimblyticsAuthServicing, FamilyService: Bimblyt
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+
+            Spacer()
+
+            Menu {
+                Button {
+                    showInvitation(for: family)
+                } label: {
+                    Label("Invite people", systemImage: "person.badge.plus")
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .foregroundStyle(AppColors.primary)
+            }
+            .accessibilityLabel("Actions for \(family.name)")
         }
+    }
+
+    private func familyActions(for family: BimblyticsFamily) -> some View {
+        Menu {
+            Button {
+                showInvitation(for: family)
+            } label: {
+                Label("Invite people", systemImage: "person.badge.plus")
+            }
+        } label: {
+            Label("Family options", systemImage: "ellipsis.circle")
+                .foregroundStyle(AppColors.primary)
+        }
+        .accessibilityLabel("Actions for \(family.name)")
+    }
+
+    private func showInvitation(for family: BimblyticsFamily) {
+        invitationFamily = family
+        showingInvitation = true
     }
 }
 
@@ -372,13 +473,14 @@ private struct SyncedFamilyGroup: Identifiable {
 }
 
 extension BabyListView where AuthService == BimblyticsAuthService, FamilyService == BimblyticsFamilyService, DeviceService == BimblyticsDeviceService, BabyService == BimblyticsBabyService, SyncService == BimblyticsSyncService {
-    init() {
+    init(invitationToken: String? = nil) {
         self.init(
             authenticationService: BimblyticsAuthService(),
             familyService: BimblyticsFamilyService(),
             deviceService: BimblyticsDeviceService(),
             babyService: BimblyticsBabyService(),
-            syncService: BimblyticsSyncService()
+            syncService: BimblyticsSyncService(),
+            invitationToken: invitationToken
         )
     }
 }

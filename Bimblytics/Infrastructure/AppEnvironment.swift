@@ -14,6 +14,7 @@ enum AppEnvironment {
     static let oidcClientId = readString("BIMBLYTICS_OIDC_CLIENT_ID")
     static let redirectUri = readString("BIMBLYTICS_REDIRECT_URI")
     static let postLogoutRedirectUri = readString("BIMBLYTICS_POST_LOGOUT_REDIRECT_URI")
+    static let urlScheme = readString("BIMBLYTICS_URL_SCHEME")
 
     static var familiesEndpoint: URL {
         apiBaseUrl.appending(path: "api/families")
@@ -37,6 +38,31 @@ enum AppEnvironment {
         }
 
         return scheme
+    }
+
+    static func familyInvitationUrl(token: String) -> URL {
+        var components = URLComponents()
+        components.scheme = urlScheme
+        components.host = "join-family"
+        components.queryItems = [URLQueryItem(name: "token", value: token)]
+
+        guard let url = components.url else {
+            fatalError("Invalid family invitation URL.")
+        }
+
+        return url
+    }
+
+    static func familyInvitationToken(from url: URL) -> String? {
+        guard url.scheme == urlScheme,
+              url.host == "join-family",
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let token = components.queryItems?.first(where: { $0.name == "token" })?.value,
+              !token.isEmpty else {
+            return nil
+        }
+
+        return token
     }
 
     private static func readString(_ key: String) -> String {

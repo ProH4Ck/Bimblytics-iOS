@@ -15,6 +15,8 @@ protocol BimblyticsFamilyServicing: ObservableObject {
 
     func loadFamilies(accessToken: String) async throws
     func createFamily(name: String, accessToken: String) async throws -> BimblyticsFamily
+    func createInvitation(familyId: String, accessToken: String) async throws -> FamilyInvitation
+    func acceptInvitation(token: String, accessToken: String) async throws -> BimblyticsFamily
     func clear()
 }
 
@@ -59,6 +61,18 @@ final class BimblyticsFamilyService: BimblyticsApiService, BimblyticsFamilyServi
         familiesEndpoint
             .appending(path: familyId)
             .appending(path: "babies")
+    }
+
+    private func invitationCreationEndpoint(familyId: String) -> URL {
+        familiesEndpoint
+            .appending(path: familyId)
+            .appending(path: "invitations")
+    }
+
+    private var invitationAcceptanceEndpoint: URL {
+        familiesEndpoint
+            .appending(path: "invitations")
+            .appending(path: "accept")
     }
 
     convenience init() {
@@ -112,9 +126,44 @@ final class BimblyticsFamilyService: BimblyticsApiService, BimblyticsFamilyServi
         return try JSONDecoder().decode(BimblyticsFamily.self, from: data)
     }
 
+    func createInvitation(familyId: String, accessToken: String) async throws -> FamilyInvitation {
+        var request = URLRequest(url: invitationCreationEndpoint(familyId: familyId))
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await urlSession.data(for: request)
+        try validate(response: response, data: data)
+
+        return try JSONDecoder().decode(FamilyInvitation.self, from: data)
+    }
+
+    func acceptInvitation(token: String, accessToken: String) async throws -> BimblyticsFamily {
+        var request = URLRequest(url: invitationAcceptanceEndpoint)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(AcceptFamilyInvitationRequest(token: token))
+
+        let (data, response) = try await urlSession.data(for: request)
+        try validate(response: response, data: data)
+
+        return try JSONDecoder().decode(BimblyticsFamily.self, from: data)
+    }
+
     func clear() {
         families = []
         isLoading = false
+    }
+
+    private func validate(response: URLResponse, data: Data) throws {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw BimblyticsFamilyServiceError.invalidResponse
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            let responseBody = String(data: data, encoding: .utf8) ?? ""
+            throw BimblyticsFamilyServiceError.requestFailed(httpResponse.statusCode, responseBody)
+        }
     }
 }
 
@@ -136,6 +185,19 @@ final class MockedFamilyService: BimblyticsFamilyServicing {
         return family
     }
 
+    func createInvitation(familyId: String, accessToken: String) async throws -> FamilyInvitation {
+        FamilyInvitation(
+            token: "PREVIEW_INVITATION_TOKEN",
+            expiresAt: "2026-05-26T08:02:57.221676+00:00"
+        )
+    }
+
+    func acceptInvitation(token: String, accessToken: String) async throws -> BimblyticsFamily {
+        let family = BimblyticsFamily(id: UUID().uuidString, name: "Joined family")
+        families.append(family)
+        return family
+    }
+
     func clear() {
         families = []
         isLoading = false
@@ -146,8 +208,13 @@ private struct CreateFamilyRequest: Encodable {
     let name: String
 }
 
-private struct AssociateBabyRequest: Encodable {
-    let babyId: String
+struct FamilyInvitation: Decodable {
+    let token: String
+    let expiresAt: String
+}
+
+private struct AcceptFamilyInvitationRequest: Encodable {
+    let token: String
 }
 
 private enum BimblyticsFamilyServiceError: LocalizedError {

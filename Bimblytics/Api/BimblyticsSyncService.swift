@@ -244,6 +244,9 @@ struct BootstrapSyncResponse: Decodable {
 
 enum FamilyRole: String, Decodable {
     case owner = "Owner"
+    case parent = "Parent"
+    case caregiver = "Caregiver"
+    case readOnly = "ReadOnly"
     case admin = "Admin"
     case member = "Member"
     case viewer = "Viewer"
