@@ -231,29 +231,65 @@ struct FoodUnitsView: View {
             unit.updatedAt = .now
         }
 
-        saveContext()
+        saveContext(synchronizing: reorderedUnits + archivedItems)
     }
 
     private func archive(_ unit: FoodUnit) {
         unit.isArchived = true
         unit.updatedAt = .now
-        saveContext()
+        saveContext(synchronizing: [unit])
     }
 
     private func restore(_ unit: FoodUnit) {
         unit.isArchived = false
         unit.updatedAt = .now
-        saveContext()
+        saveContext(synchronizing: [unit])
     }
 
     private func delete(_ unit: FoodUnit) {
+        let deletedId = unit.id
         modelContext.delete(unit)
-        saveContext()
+
+        do {
+            if let familyId {
+                try BimblyticsEventSyncCoordinator().enqueueDeletion(
+                    entityType: .foodUnit,
+                    entityId: deletedId,
+                    familyId: familyId,
+                    modelContext: modelContext
+                )
+                Task {
+                    try? await BimblyticsEventSyncCoordinator().synchronizeDeletion(
+                        familyId: familyId,
+                        babyId: nil,
+                        modelContext: modelContext
+                    )
+                }
+            } else {
+                try modelContext.save()
+            }
+        } catch {
+            assertionFailure("Failed to delete unit: \(error.localizedDescription)")
+        }
     }
 
-    private func saveContext() {
+    private func saveContext(synchronizing modifiedUnits: [FoodUnit] = []) {
         do {
             try modelContext.save()
+
+            guard let familyId else {
+                return
+            }
+
+            for unit in modifiedUnits {
+                Task {
+                    try? await BimblyticsEventSyncCoordinator().synchronize(
+                        foodUnit: unit,
+                        familyId: familyId,
+                        modelContext: modelContext
+                    )
+                }
+            }
         } catch {
             assertionFailure("Failed to save unit changes: \(error.localizedDescription)")
         }
@@ -381,10 +417,13 @@ private struct FoodUnitFormView: View {
     }
 
     private func save() {
+        let savedUnit: FoodUnit
+
         if let unit {
             unit.name = trimmedName
             unit.symbol = trimmedSymbol
             unit.updatedAt = .now
+            savedUnit = unit
         } else {
             let familyId = familyId
             let descriptor = FetchDescriptor<FoodUnit>(
@@ -403,13 +442,29 @@ private struct FoodUnitFormView: View {
                 isArchived: false
             )
             modelContext.insert(newUnit)
+            savedUnit = newUnit
         }
 
         do {
             try modelContext.save()
+            synchronize(savedUnit)
             dismiss()
         } catch {
             assertionFailure("Failed to save unit: \(error.localizedDescription)")
+        }
+    }
+
+    private func synchronize(_ unit: FoodUnit) {
+        guard let familyId else {
+            return
+        }
+
+        Task {
+            try? await BimblyticsEventSyncCoordinator().synchronize(
+                foodUnit: unit,
+                familyId: familyId,
+                modelContext: modelContext
+            )
         }
     }
 }

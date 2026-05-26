@@ -32,6 +32,7 @@ final class DiaperChangeEvent {
     var createdAt: Date
 
     init(
+        id: UUID = UUID(),
         babyId: UUID,
         date: Date,
         diaperSize: DiaperSize?,
@@ -39,9 +40,10 @@ final class DiaperChangeEvent {
         stockMovementId: String? = nil,
         peeLevel: DiaperLevel,
         poopLevel: DiaperLevel,
-        notes: String?
+        notes: String?,
+        createdAt: Date = .now
     ) {
-        self.id = UUID()
+        self.id = id
         self.babyId = babyId
         self.date = date
         self.diaperSize = diaperSize
@@ -50,7 +52,7 @@ final class DiaperChangeEvent {
         self.peeLevelRaw = peeLevel.rawValue
         self.poopLevelRaw = poopLevel.rawValue
         self.notes = notes
-        self.createdAt = .now
+        self.createdAt = createdAt
     }
 }
 

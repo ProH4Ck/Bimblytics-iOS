@@ -165,6 +165,25 @@ struct ClientSyncChangeRequest: Encodable {
         )
     }
 
+    static func delete(
+        familyId: UUID,
+        entityType: String,
+        entityId: UUID,
+        changedAt: Date = .now,
+        baseVersion: Int64? = nil
+    ) -> ClientSyncChangeRequest {
+        ClientSyncChangeRequest(
+            clientChangeId: UUID(),
+            familyId: familyId,
+            entityType: entityType,
+            entityId: entityId,
+            operation: .delete,
+            changedAt: changedAt,
+            baseVersion: baseVersion,
+            payloadJson: "{}"
+        )
+    }
+
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(clientChangeId, forKey: .clientChangeId)
@@ -438,7 +457,7 @@ private enum SyncJSONValue: Codable {
     }
 }
 
-private extension JSONDecoder {
+extension JSONDecoder {
     static var bimblyticsSync: JSONDecoder {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .custom { decoder in

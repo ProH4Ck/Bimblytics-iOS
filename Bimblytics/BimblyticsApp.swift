@@ -29,7 +29,8 @@ struct BimblyticsApp: App {
             FoodItem.self,
             FoodUnit.self,
             SyncedFamily.self,
-            SyncedFamilyBabyLink.self
+            SyncedFamilyBabyLink.self,
+            SyncOutboxChange.self
         ])
     }
 }

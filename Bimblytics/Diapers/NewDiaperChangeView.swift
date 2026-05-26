@@ -218,6 +218,17 @@ struct NewDiaperChangeView: View {
 
             modelContext.insert(event)
             try modelContext.save()
+
+            if let familyId {
+                Task {
+                    try? await BimblyticsEventSyncCoordinator().synchronize(
+                        diaperChangeEvent: event,
+                        familyId: familyId,
+                        modelContext: modelContext
+                    )
+                }
+            }
+
             dismiss()
         } catch {
             // Keep the current lightweight UX for now: simply do not dismiss on failure.

@@ -378,6 +378,17 @@ private struct NewFoodItemView: View {
 
         do {
             try modelContext.save()
+
+            if let familyId {
+                Task {
+                    try? await BimblyticsEventSyncCoordinator().synchronize(
+                        foodItem: foodItem,
+                        familyId: familyId,
+                        modelContext: modelContext
+                    )
+                }
+            }
+
             dismiss()
         } catch {
             assertionFailure("Failed to save food item: \(error.localizedDescription)")

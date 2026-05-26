@@ -18,6 +18,7 @@ struct ContentView: View {
     @State private var pendingFamilyInvitationToken: String?
     @State private var pendingEventDeletion: RecentEvent?
     @State private var isShowingDeleteEventAlert = false
+    @State private var synchronizedEventRevision = 0
 
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding: Bool = false
 
@@ -124,6 +125,21 @@ struct ContentView: View {
             .onChange(of: babies) { _, _ in
                 ensureSelectedBaby()
             }
+            .task(id: selectedBabyID) {
+                guard let selectedBaby, selectedBaby.familyId != nil else {
+                    return
+                }
+
+                do {
+                    try await BimblyticsEventSyncCoordinator().synchronize(
+                        activatedBaby: selectedBaby,
+                        modelContext: modelContext
+                    )
+                    synchronizedEventRevision += 1
+                } catch {
+                    // The existing local timeline remains available when the remote refresh fails.
+                }
+            }
             .onOpenURL { url in
                 guard let token = AppEnvironment.familyInvitationToken(from: url) else {
                     return
@@ -192,7 +208,7 @@ struct ContentView: View {
                     }
                 }
 
-                let events = recentEvents(for: baby)
+                let events = recentEvents(for: baby, revision: synchronizedEventRevision)
                 sectionHeader(title: "Latest events")
 
                 if events.isEmpty {
@@ -331,7 +347,7 @@ struct ContentView: View {
         })?.name
     }
 
-    private func recentEvents(for baby: Baby) -> [RecentEvent] {
+    private func recentEvents(for baby: Baby, revision _: Int) -> [RecentEvent] {
         let babyId = baby.id
 
         var events: [RecentEvent] = []
@@ -403,8 +419,16 @@ struct ContentView: View {
 
     private func delete(event: RecentEvent) {
         do {
+            let deletion: (entityType: SyncEntityType, entityId: UUID, familyId: String, babyId: UUID)?
+
             switch event.kind {
             case .diaperChange(let changeEvent):
+                deletion = deletionDetails(
+                    entityType: .diaperChangeEvent,
+                    entityId: changeEvent.id,
+                    babyId: changeEvent.babyId
+                )
+
                 if let stockMovementId = changeEvent.stockMovementId,
                    let linkedMovement = linkedStockMovement(withId: stockMovementId) {
                     if let inventoryItem = linkedMovement.inventoryItem {
@@ -417,7 +441,29 @@ struct ContentView: View {
 
                 modelContext.delete(changeEvent)
             case .feeding(let feedingEvent):
+                deletion = deletionDetails(
+                    entityType: .feedingEvent,
+                    entityId: feedingEvent.id,
+                    babyId: feedingEvent.babyId
+                )
                 modelContext.delete(feedingEvent)
+            }
+
+            if let deletion {
+                try BimblyticsEventSyncCoordinator().enqueueDeletion(
+                    entityType: deletion.entityType,
+                    entityId: deletion.entityId,
+                    familyId: deletion.familyId,
+                    modelContext: modelContext
+                )
+
+                Task {
+                    try? await BimblyticsEventSyncCoordinator().synchronizeDeletion(
+                        familyId: deletion.familyId,
+                        babyId: deletion.babyId,
+                        modelContext: modelContext
+                    )
+                }
             }
 
             try modelContext.save()
@@ -426,6 +472,18 @@ struct ContentView: View {
         }
 
         pendingEventDeletion = nil
+    }
+
+    private func deletionDetails(
+        entityType: SyncEntityType,
+        entityId: UUID,
+        babyId: UUID
+    ) -> (entityType: SyncEntityType, entityId: UUID, familyId: String, babyId: UUID)? {
+        guard let familyId = babies.first(where: { $0.id == babyId })?.familyId else {
+            return nil
+        }
+
+        return (entityType, entityId, familyId, babyId)
     }
 
     private func linkedStockMovement(withId id: String) -> DiaperStockMovement? {

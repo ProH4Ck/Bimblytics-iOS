@@ -25,7 +25,8 @@ enum PreviewData {
             FoodItem.self,
             FeedingEvent.self,
             SyncedFamily.self,
-            SyncedFamilyBabyLink.self
+            SyncedFamilyBabyLink.self,
+            SyncOutboxChange.self
         ])
 
         let configuration = ModelConfiguration(

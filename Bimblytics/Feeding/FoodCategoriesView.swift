@@ -110,8 +110,9 @@ struct FoodCategoriesView: View {
                             sortedCategories.move(fromOffsets: indices, toOffset: newOffset)
                             for (index, item) in sortedCategories.enumerated() {
                                 item.sortOrder = index
+                                item.updatedAt = .now
                             }
-                            saveContext()
+                            saveContext(synchronizing: sortedCategories)
                         })
                     }
                 }
@@ -177,23 +178,59 @@ struct FoodCategoriesView: View {
     private func archive(_ category: FoodCategory) {
         category.isArchived = true
         category.updatedAt = .now
-        saveContext()
+        saveContext(synchronizing: [category])
     }
 
     private func restore(_ category: FoodCategory) {
         category.isArchived = false
         category.updatedAt = .now
-        saveContext()
+        saveContext(synchronizing: [category])
     }
 
     private func delete(_ category: FoodCategory) {
+        let deletedId = category.id
         modelContext.delete(category)
-        saveContext()
+
+        do {
+            if let familyId {
+                try BimblyticsEventSyncCoordinator().enqueueDeletion(
+                    entityType: .foodCategory,
+                    entityId: deletedId,
+                    familyId: familyId,
+                    modelContext: modelContext
+                )
+                Task {
+                    try? await BimblyticsEventSyncCoordinator().synchronizeDeletion(
+                        familyId: familyId,
+                        babyId: nil,
+                        modelContext: modelContext
+                    )
+                }
+            } else {
+                try modelContext.save()
+            }
+        } catch {
+            assertionFailure("Failed to delete category: \(error.localizedDescription)")
+        }
     }
 
-    private func saveContext() {
+    private func saveContext(synchronizing modifiedCategories: [FoodCategory] = []) {
         do {
             try modelContext.save()
+
+            guard let familyId else {
+                return
+            }
+
+            for category in modifiedCategories {
+                Task {
+                    try? await BimblyticsEventSyncCoordinator().synchronize(
+                        foodCategory: category,
+                        familyId: familyId,
+                        modelContext: modelContext
+                    )
+                }
+            }
         } catch {
             assertionFailure("Failed to save category changes: \(error.localizedDescription)")
         }
@@ -301,6 +338,7 @@ private struct FoodCategoryFormView: View {
 
         do {
             try modelContext.save()
+            synchronize(category)
             dismiss()
         } catch {
             assertionFailure("Failed to update category archive state: \(error.localizedDescription)")
@@ -308,9 +346,12 @@ private struct FoodCategoryFormView: View {
     }
 
     private func save() {
+        let savedCategory: FoodCategory
+
         if let category {
             category.name = trimmedName
             category.updatedAt = .now
+            savedCategory = category
         } else {
             let familyId = familyId
             let descriptor = FetchDescriptor<FoodCategory>(
@@ -328,13 +369,29 @@ private struct FoodCategoryFormView: View {
                 isArchived: false
             )
             modelContext.insert(newCategory)
+            savedCategory = newCategory
         }
 
         do {
             try modelContext.save()
+            synchronize(savedCategory)
             dismiss()
         } catch {
             assertionFailure("Failed to save category: \(error.localizedDescription)")
+        }
+    }
+
+    private func synchronize(_ category: FoodCategory) {
+        guard let familyId else {
+            return
+        }
+
+        Task {
+            try? await BimblyticsEventSyncCoordinator().synchronize(
+                foodCategory: category,
+                familyId: familyId,
+                modelContext: modelContext
+            )
         }
     }
 }

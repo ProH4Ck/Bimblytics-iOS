@@ -157,6 +157,17 @@ struct NewFeedingEventView: View {
 
         do {
             try modelContext.save()
+
+            if let familyId {
+                Task {
+                    try? await BimblyticsEventSyncCoordinator().synchronize(
+                        feedingEvent: event,
+                        familyId: familyId,
+                        modelContext: modelContext
+                    )
+                }
+            }
+
             dismiss()
         } catch {
             assertionFailure("Failed to save feeding event: \(error.localizedDescription)")
