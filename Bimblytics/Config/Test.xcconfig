@@ -1,0 +1,18 @@
+//
+//  Test.xcconfig
+//  Bimblytics
+//
+//  Created by Emanuele Curati on 28/05/2026.
+//
+
+BIMBLYTICS_ENVIRONMENT_NAME = TEST
+PRODUCT_BUNDLE_IDENTIFIER = com.espherix.bimblytics.test
+PRODUCT_NAME = Bimblytics
+ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon-Test
+BIMBLYTICS_APP_DISPLAY_NAME = Bimblytics Test
+BIMBLYTICS_URL_SCHEME = bimblytics-test
+BIMBLYTICS_API_BASE_URL = https:/$()/api.test.bimblytics.com
+BIMBLYTICS_AUTH_BASE_URL = https:/$()/auth.test.bimblytics.cloud
+BIMBLYTICS_OIDC_CLIENT_ID = bimblytics-ios
+BIMBLYTICS_REDIRECT_URI = bimblytics-test:/$()/auth-callback
+BIMBLYTICS_POST_LOGOUT_REDIRECT_URI = bimblytics-test:/$()/logout-callback
